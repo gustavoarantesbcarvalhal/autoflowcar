@@ -43,7 +43,7 @@ function ClienteDetalhe() {
 
   const updateCustomer = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
-      const { error } = await supabase.from("customers").update(patch).eq("id", id);
+      const { error } = await supabase.from("customers").update(patch as never).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customer", id] }),
