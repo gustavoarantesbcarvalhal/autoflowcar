@@ -14,7 +14,207 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          done: boolean
+          id: string
+          notes: string | null
+          scheduled_at: string
+          title: string | null
+          type: Database["public"]["Enums"]["appointment_type"]
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          done?: boolean
+          id?: string
+          notes?: string | null
+          scheduled_at: string
+          title?: string | null
+          type?: Database["public"]["Enums"]["appointment_type"]
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          done?: boolean
+          id?: string
+          notes?: string | null
+          scheduled_at?: string
+          title?: string | null
+          type?: Database["public"]["Enums"]["appointment_type"]
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          interest_brand: string | null
+          interest_model: string | null
+          interest_year: string | null
+          last_contact_at: string | null
+          lost_reason: string | null
+          name: string
+          next_return_at: string | null
+          notes: string | null
+          phone: string | null
+          price_max: number | null
+          price_min: number | null
+          source: Database["public"]["Enums"]["lead_source"] | null
+          status: Database["public"]["Enums"]["lead_status"]
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          interest_brand?: string | null
+          interest_model?: string | null
+          interest_year?: string | null
+          last_contact_at?: string | null
+          lost_reason?: string | null
+          name: string
+          next_return_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          price_max?: number | null
+          price_min?: number | null
+          source?: Database["public"]["Enums"]["lead_source"] | null
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          interest_brand?: string | null
+          interest_model?: string | null
+          interest_year?: string | null
+          last_contact_at?: string | null
+          lost_reason?: string | null
+          name?: string
+          next_return_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          price_max?: number | null
+          price_min?: number | null
+          source?: Database["public"]["Enums"]["lead_source"] | null
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      interactions: {
+        Row: {
+          content: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          type: Database["public"]["Enums"]["interaction_type"]
+          vehicle_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          type?: Database["public"]["Enums"]["interaction_type"]
+          vehicle_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          type?: Database["public"]["Enums"]["interaction_type"]
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          brand: string
+          color: string | null
+          created_at: string
+          id: string
+          mileage: number | null
+          model: string
+          notes: string | null
+          price: number | null
+          status: Database["public"]["Enums"]["vehicle_status"]
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          brand: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          mileage?: number | null
+          model: string
+          notes?: string | null
+          price?: number | null
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          brand?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          mileage?: number | null
+          model?: string
+          notes?: string | null
+          price?: number | null
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +223,35 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      appointment_type: "retorno" | "visita" | "test_drive"
+      interaction_type:
+        | "nota"
+        | "ligacao"
+        | "whatsapp"
+        | "email"
+        | "visita"
+        | "test_drive"
+        | "proposta"
+        | "veiculo_apresentado"
+        | "perda"
+      lead_source:
+        | "instagram"
+        | "facebook"
+        | "marketplace"
+        | "olx"
+        | "site"
+        | "indicacao"
+        | "outros"
+      lead_status:
+        | "novo_lead"
+        | "primeiro_contato"
+        | "interessado"
+        | "em_negociacao"
+        | "test_drive"
+        | "proposta_enviada"
+        | "venda_realizada"
+        | "perdido"
+      vehicle_status: "disponivel" | "reservado" | "vendido"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +378,39 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      appointment_type: ["retorno", "visita", "test_drive"],
+      interaction_type: [
+        "nota",
+        "ligacao",
+        "whatsapp",
+        "email",
+        "visita",
+        "test_drive",
+        "proposta",
+        "veiculo_apresentado",
+        "perda",
+      ],
+      lead_source: [
+        "instagram",
+        "facebook",
+        "marketplace",
+        "olx",
+        "site",
+        "indicacao",
+        "outros",
+      ],
+      lead_status: [
+        "novo_lead",
+        "primeiro_contato",
+        "interessado",
+        "em_negociacao",
+        "test_drive",
+        "proposta_enviada",
+        "venda_realizada",
+        "perdido",
+      ],
+      vehicle_status: ["disponivel", "reservado", "vendido"],
+    },
   },
 } as const
