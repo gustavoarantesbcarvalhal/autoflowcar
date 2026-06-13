@@ -20,6 +20,11 @@ const PRICE_RANGES = [
   { label: "Acima R$ 120k", min: 120000, max: Infinity },
 ];
 
+const MONTHS = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
 async function fetchVehicles() {
   const { data, error } = await supabase.from("vehicles").select("*").order("created_at", { ascending: false });
   if (error) throw error;
