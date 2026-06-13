@@ -20,6 +20,11 @@ const PRICE_RANGES = [
   { label: "Acima R$ 120k", min: 120000, max: Infinity },
 ];
 
+const MONTHS = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
 async function fetchVehicles() {
   const { data, error } = await supabase.from("vehicles").select("*").order("created_at", { ascending: false });
   if (error) throw error;
@@ -30,7 +35,8 @@ function EstoquePage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["vehicles"], queryFn: fetchVehicles });
   const [showNew, setShowNew] = useState(false);
-  const [filter, setFilter] = useState({ q: "", range: 0, status: "" });
+  const now = new Date();
+  const [filter, setFilter] = useState({ q: "", range: 0, status: "", month: -1, year: now.getFullYear() });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
@@ -48,6 +54,15 @@ function EstoquePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
   });
 
+  const years = useMemo(() => {
+    const ys = new Set<number>([now.getFullYear()]);
+    (data ?? []).forEach((v) => {
+      if (v.created_at) ys.add(new Date(v.created_at).getFullYear());
+      if (v.updated_at) ys.add(new Date(v.updated_at).getFullYear());
+    });
+    return Array.from(ys).sort((a, b) => b - a);
+  }, [data, now]);
+
   const filtered = useMemo(() => {
     const r = PRICE_RANGES[filter.range];
     return (data ?? []).filter((v) => {
@@ -58,9 +73,25 @@ function EstoquePage() {
         const t = filter.q.toLowerCase();
         if (![v.brand, v.model, String(v.year)].some((x) => x?.toLowerCase?.().includes(t))) return false;
       }
+      if (filter.month >= 0) {
+        // Para vendidos/reservados: usa updated_at (quando o status mudou)
+        // Para disponíveis: usa created_at (quando entrou no estoque)
+        const ref = v.status === "disponivel" ? v.created_at : v.updated_at;
+        if (!ref) return false;
+        const d = new Date(ref);
+        if (d.getMonth() !== filter.month || d.getFullYear() !== filter.year) return false;
+      }
       return true;
     });
   }, [data, filter]);
+
+  const monthCounts = useMemo(() => {
+    const base = { disponivel: 0, reservado: 0, vendido: 0 };
+    filtered.forEach((v) => {
+      if (v.status in base) base[v.status as keyof typeof base]++;
+    });
+    return base;
+  }, [filtered]);
 
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
@@ -77,7 +108,7 @@ function EstoquePage() {
 
       {showNew && <NewVehicleForm onDone={() => { setShowNew(false); qc.invalidateQueries({ queryKey: ["vehicles"] }); }} />}
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         <input value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })}
           placeholder="Buscar marca, modelo ou ano…"
           className="h-9 flex-1 min-w-48 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-primary/60" />
@@ -90,7 +121,35 @@ function EstoquePage() {
           <option value="">Todos os status</option>
           {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
+        <select value={filter.month} onChange={(e) => setFilter({ ...filter, month: Number(e.target.value) })}
+          className="h-9 rounded-md border border-border bg-card px-2 text-sm">
+          <option value={-1}>Todos os meses</option>
+          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        <select value={filter.year} onChange={(e) => setFilter({ ...filter, year: Number(e.target.value) })}
+          className="h-9 rounded-md border border-border bg-card px-2 text-sm" disabled={filter.month < 0}>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
       </div>
+
+      {filter.month >= 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
+          <span className="font-bold uppercase tracking-wider text-muted-foreground">
+            {MONTHS[filter.month]} / {filter.year}
+          </span>
+          <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
+            Disponíveis: {monthCounts.disponivel}
+          </span>
+          <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-bold text-amber-600 dark:text-amber-400">
+            Reservados: {monthCounts.reservado}
+          </span>
+          <span className="rounded-md bg-primary/15 px-2 py-0.5 font-bold text-primary">
+            Vendidos: {monthCounts.vendido}
+          </span>
+          <button onClick={() => setFilter({ ...filter, month: -1 })}
+            className="ml-auto rounded-md border border-border px-2 py-0.5 hover:bg-muted">Limpar mês</button>
+        </div>
+      )}
 
       {isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
