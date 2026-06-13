@@ -108,7 +108,7 @@ function EstoquePage() {
 
       {showNew && <NewVehicleForm onDone={() => { setShowNew(false); qc.invalidateQueries({ queryKey: ["vehicles"] }); }} />}
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         <input value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })}
           placeholder="Buscar marca, modelo ou ano…"
           className="h-9 flex-1 min-w-48 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-primary/60" />
@@ -121,7 +121,35 @@ function EstoquePage() {
           <option value="">Todos os status</option>
           {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
+        <select value={filter.month} onChange={(e) => setFilter({ ...filter, month: Number(e.target.value) })}
+          className="h-9 rounded-md border border-border bg-card px-2 text-sm">
+          <option value={-1}>Todos os meses</option>
+          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        <select value={filter.year} onChange={(e) => setFilter({ ...filter, year: Number(e.target.value) })}
+          className="h-9 rounded-md border border-border bg-card px-2 text-sm" disabled={filter.month < 0}>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
       </div>
+
+      {filter.month >= 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
+          <span className="font-bold uppercase tracking-wider text-muted-foreground">
+            {MONTHS[filter.month]} / {filter.year}
+          </span>
+          <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
+            Disponíveis: {monthCounts.disponivel}
+          </span>
+          <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-bold text-amber-600 dark:text-amber-400">
+            Reservados: {monthCounts.reservado}
+          </span>
+          <span className="rounded-md bg-primary/15 px-2 py-0.5 font-bold text-primary">
+            Vendidos: {monthCounts.vendido}
+          </span>
+          <button onClick={() => setFilter({ ...filter, month: -1 })}
+            className="ml-auto rounded-md border border-border px-2 py-0.5 hover:bg-muted">Limpar mês</button>
+        </div>
+      )}
 
       {isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
