@@ -54,6 +54,15 @@ function EstoquePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
   });
 
+  const years = useMemo(() => {
+    const ys = new Set<number>([now.getFullYear()]);
+    (data ?? []).forEach((v) => {
+      if (v.created_at) ys.add(new Date(v.created_at).getFullYear());
+      if (v.updated_at) ys.add(new Date(v.updated_at).getFullYear());
+    });
+    return Array.from(ys).sort((a, b) => b - a);
+  }, [data, now]);
+
   const filtered = useMemo(() => {
     const r = PRICE_RANGES[filter.range];
     return (data ?? []).filter((v) => {
@@ -64,9 +73,25 @@ function EstoquePage() {
         const t = filter.q.toLowerCase();
         if (![v.brand, v.model, String(v.year)].some((x) => x?.toLowerCase?.().includes(t))) return false;
       }
+      if (filter.month >= 0) {
+        // Para vendidos/reservados: usa updated_at (quando o status mudou)
+        // Para disponíveis: usa created_at (quando entrou no estoque)
+        const ref = v.status === "disponivel" ? v.created_at : v.updated_at;
+        if (!ref) return false;
+        const d = new Date(ref);
+        if (d.getMonth() !== filter.month || d.getFullYear() !== filter.year) return false;
+      }
       return true;
     });
   }, [data, filter]);
+
+  const monthCounts = useMemo(() => {
+    const base = { disponivel: 0, reservado: 0, vendido: 0 };
+    filtered.forEach((v) => {
+      if (v.status in base) base[v.status as keyof typeof base]++;
+    });
+    return base;
+  }, [filtered]);
 
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
