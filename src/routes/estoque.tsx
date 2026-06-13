@@ -35,7 +35,8 @@ function EstoquePage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["vehicles"], queryFn: fetchVehicles });
   const [showNew, setShowNew] = useState(false);
-  const [filter, setFilter] = useState({ q: "", range: 0, status: "" });
+  const now = new Date();
+  const [filter, setFilter] = useState({ q: "", range: 0, status: "", month: -1, year: now.getFullYear() });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
