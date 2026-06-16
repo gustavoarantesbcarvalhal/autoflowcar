@@ -149,20 +149,21 @@ function AppShell() {
 
   const isLoginPage = pathname === "/login";
   const isAdminPage = pathname.startsWith("/admin");
-  const isPublicPage = isLoginPage;
 
   useEffect(() => {
     if (loading) return;
 
-    if (!user && !isPublicPage) {
+    if (!user && !isLoginPage) {
       navigate({ to: "/login", replace: true });
       return;
     }
 
-    if (user && isLoginPage) {
+    // Só redireciona para fora do login se o usuário TEM acesso.
+    // Usuários bloqueados ficam em /login para ver o banner e o botão de logout.
+    if (user && isLoginPage && temAcesso) {
       navigate({ to: isSuperAdmin ? "/admin" : "/", replace: true });
     }
-  }, [loading, user, isPublicPage, isLoginPage, isSuperAdmin, navigate]);
+  }, [loading, user, isLoginPage, isSuperAdmin, temAcesso, navigate]);
 
   if (loading) {
     return (

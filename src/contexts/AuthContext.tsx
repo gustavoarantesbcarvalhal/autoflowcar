@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { User, AuthChangeEvent } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export type UserPerfil =
@@ -57,32 +57,46 @@ async function fetchPerfil(): Promise<PerfilData | null> {
   };
 }
 
+// Eventos que não mudam identidade do usuário nem suas permissões —
+// não é necessário recarregar o perfil nem entrar em estado de loading.
+const SKIP_RELOAD_EVENTS = new Set<AuthChangeEvent>([
+  "TOKEN_REFRESHED",
+  "USER_UPDATED",
+]);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [perfilData, setPerfilData] = useState<PerfilData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadPerfil() {
-    const data = await fetchPerfil();
-    setPerfilData(data);
-  }
-
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) await loadPerfil();
-      setLoading(false);
-    });
-
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await loadPerfil();
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const currentUser = session?.user ?? null;
+
+      // Refresh de token e atualização de metadados não alteram acesso.
+      // Apenas atualiza o user object sem entrar em estado de loading.
+      if (SKIP_RELOAD_EVENTS.has(event)) {
+        setUser(currentUser);
+        return;
+      }
+
+      // Para todos os outros eventos (INITIAL_SESSION, SIGNED_IN, SIGNED_OUT,
+      // PASSWORD_RECOVERY, MFA_CHALLENGE_VERIFIED): re-entra em loading ANTES
+      // de setar user. Isso garante que nenhum render intermediário mostre
+      // user≠null com perfilData=null (causa do flash de BlockedScreen).
+      setLoading(true);
+      setUser(currentUser);
+
+      if (currentUser) {
+        const data = await fetchPerfil();
+        setPerfilData(data);
       } else {
         setPerfilData(null);
       }
+
+      // loading=false só depois que o perfil está resolvido.
       setLoading(false);
     });
 
@@ -95,10 +109,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) throw error;
+    // Estado limpo via SIGNED_IN no handler acima — sem necessidade de
+    // setar perfilData manualmente aqui.
   }
 
   async function signOut() {
-    setPerfilData(null);
+    // Não limpar estado manualmente: o evento SIGNED_OUT dispara o handler
+    // acima que faz setLoading(true) → setUser(null) → setPerfilData(null)
+    // → setLoading(false) na ordem correta.
     await supabase.auth.signOut();
   }
 
@@ -110,7 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function refreshPerfil() {
-    await loadPerfil();
+    setLoading(true);
+    const data = await fetchPerfil();
+    setPerfilData(data);
+    setLoading(false);
   }
 
   const isSuperAdmin = perfilData?.perfil === "super_admin";

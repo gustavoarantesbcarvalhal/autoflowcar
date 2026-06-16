@@ -1,5 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle } from "lucide-react";
@@ -12,9 +12,8 @@ export const Route = createFileRoute("/login")({
 type View = "login" | "forgot" | "reset_sent";
 
 function LoginPage() {
-  const { user, loading, isSuperAdmin, temAcesso, tenantStatus, signIn, resetPassword } =
+  const { user, loading, tenantStatus, signIn, resetPassword, signOut } =
     useAuth();
-  const navigate = useNavigate();
 
   const [view, setView] = useState<View>("login");
   const [email, setEmail] = useState("");
@@ -23,15 +22,8 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect authenticated users
-  useEffect(() => {
-    if (loading || !user) return;
-    if (isSuperAdmin) {
-      navigate({ to: "/admin" });
-    } else if (temAcesso) {
-      navigate({ to: "/" });
-    }
-  }, [loading, user, isSuperAdmin, temAcesso, navigate]);
+  // O redirect pós-login é centralizado em AppShell (__root.tsx).
+  // LoginPage só precisa lidar com o que é específico do formulário.
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -105,14 +97,23 @@ function LoginPage() {
 
         {/* Blocked state */}
         {isBlocked && (
-          <div className="mb-4 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
-            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-            <div>
-              <p className="text-sm font-semibold text-destructive">Loja bloqueada</p>
-              <p className="mt-0.5 text-xs text-destructive/80">
-                Entre em contato com o suporte AutoFlow para desbloquear sua conta.
-              </p>
+          <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <div>
+                <p className="text-sm font-semibold text-destructive">Loja bloqueada</p>
+                <p className="mt-0.5 text-xs text-destructive/80">
+                  Entre em contato com o suporte AutoFlow para desbloquear sua conta.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="mt-3 w-full rounded-md border border-destructive/40 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              Sair da conta
+            </button>
           </div>
         )}
 
