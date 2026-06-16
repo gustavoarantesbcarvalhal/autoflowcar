@@ -15,14 +15,22 @@ import { useTheme } from "./theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { to: "/", label: "Dashboard" },
-  { to: "/clientes", label: "Clientes" },
-  { to: "/followup", label: "Follow-up" },
-  { to: "/estoque", label: "Estoque" },
-  { to: "/agenda", label: "Agenda" },
-  { to: "/exportar", label: "Exportar" },
-] as const;
+function NavLink({ to, label, pathname }: { to: string; label: string; pathname: string }) {
+  const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
+  return (
+    <Link
+      to={to as never}
+      className={cn(
+        "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
 
 export function TopNav() {
   const { theme, toggle } = useTheme();
@@ -33,6 +41,9 @@ export function TopNav() {
   const [loggingOut, setLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const podeVerExportar = perfil !== "vendedor" && perfil !== null;
+  const podeVerUsuarios = perfil === "admin_loja" || perfil === "gerente";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -78,24 +89,13 @@ export function TopNav() {
           <span className="text-lg font-bold tracking-tight">AUTOFLOW</span>
         </Link>
         <div className="hidden items-center gap-1 md:flex">
-          {NAV.map((n) => {
-            const active =
-              n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {n.label}
-              </Link>
-            );
-          })}
+          <NavLink to="/" label="Dashboard" pathname={pathname} />
+          <NavLink to="/clientes" label="Clientes" pathname={pathname} />
+          <NavLink to="/followup" label="Follow-up" pathname={pathname} />
+          <NavLink to="/estoque" label="Estoque" pathname={pathname} />
+          <NavLink to="/agenda" label="Agenda" pathname={pathname} />
+          {podeVerExportar && <NavLink to="/exportar" label="Exportar" pathname={pathname} />}
+          {podeVerUsuarios && <NavLink to="/usuarios" label="Usuários" pathname={pathname} />}
         </div>
       </div>
 

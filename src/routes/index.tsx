@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUSES, formatPriceBRL, whatsappLink, daysSince } from "@/lib/crm";
+import { useAuth } from "@/hooks/useAuth";
 import { Plus, MessageCircle, ArrowRight, AlertTriangle, Clock, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -31,6 +32,8 @@ function Kpi({ label, value, hint, tone }: { label: string; value: string | numb
 }
 
 function Dashboard() {
+  const { perfil } = useAuth();
+  const isVendedor = perfil === "vendedor";
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboard });
 
   const customers = data?.customers ?? [];
@@ -49,12 +52,20 @@ function Dashboard() {
   const appts = data?.appts ?? [];
   const upcoming = appts.slice(0, 5);
 
+  const title = isVendedor ? "Meu Dashboard" : "Dashboard Comercial";
+  const subtitle = isVendedor ? "Seus leads e compromissos de hoje" : "Visão rápida do dia de vendas";
+  const staleTitle = isVendedor ? "Meus clientes sem contato há 7d+" : "Clientes sem contato há 7d+";
+  const newLeadsLabel = isVendedor ? "Meus Leads Novos" : "Leads Novos";
+  const negLabel = isVendedor ? "Minhas Negociações" : "Em Negociação";
+  const salesLabel = isVendedor ? "Minhas Vendas" : "Vendas";
+  const followLabel = isVendedor ? "Meus Follow-ups" : "Follow-ups";
+
   return (
     <div className="mx-auto max-w-[1600px] p-4 md:p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard Comercial</h1>
-          <p className="text-sm text-muted-foreground">Visão rápida do dia de vendas</p>
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex gap-2">
           <Link to="/clientes/novo" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
@@ -68,10 +79,10 @@ function Dashboard() {
 
       {/* KPI Ribbon */}
       <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm md:grid-cols-3 lg:grid-cols-6">
-        <Kpi label="Leads Novos" value={isLoading ? "…" : newLeads} hint="Não contactados" />
-        <Kpi label="Em Negociação" value={isLoading ? "…" : negotiating} />
-        <Kpi label="Follow-ups" value={isLoading ? "…" : followups} tone="primary" hint="Pendentes hoje" />
-        <Kpi label="Vendas" value={isLoading ? "…" : sales} tone="success" hint="Concluídas" />
+        <Kpi label={newLeadsLabel} value={isLoading ? "…" : newLeads} hint="Não contactados" />
+        <Kpi label={negLabel} value={isLoading ? "…" : negotiating} />
+        <Kpi label={followLabel} value={isLoading ? "…" : followups} tone="primary" hint="Pendentes hoje" />
+        <Kpi label={salesLabel} value={isLoading ? "…" : sales} tone="success" hint="Concluídas" />
         <Kpi label="Sem Contato 7d+" value={isLoading ? "…" : stale.length} tone="danger" />
         <Kpi label="Próximos Retornos" value={isLoading ? "…" : upcoming.length} />
       </div>
@@ -80,7 +91,7 @@ function Dashboard() {
         {/* Stale list */}
         <section className="flex-1">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest"><AlertTriangle className="size-4 text-destructive" />Clientes sem contato há 7d+</h2>
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest"><AlertTriangle className="size-4 text-destructive" />{staleTitle}</h2>
             <Link to="/followup" className="inline-flex items-center gap-1 text-xs font-bold uppercase text-primary hover:underline">
               Ver Follow-up <ArrowRight className="size-3" />
             </Link>

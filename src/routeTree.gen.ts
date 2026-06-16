@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FollowupRouteImport } from './routes/followup'
 import { Route as ExportarRouteImport } from './routes/exportar'
@@ -20,6 +21,11 @@ import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNovoRouteImport } from './routes/clientes.novo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
   '/login': typeof LoginRoute
+  '/usuarios': typeof UsuariosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/novo': typeof ClientesNovoRoute
   '/clientes/': typeof ClientesIndexRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
   '/login': typeof LoginRoute
+  '/usuarios': typeof UsuariosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/novo': typeof ClientesNovoRoute
   '/clientes': typeof ClientesIndexRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
   '/login': typeof LoginRoute
+  '/usuarios': typeof UsuariosRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/novo': typeof ClientesNovoRoute
   '/clientes/': typeof ClientesIndexRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/exportar'
     | '/followup'
     | '/login'
+    | '/usuarios'
     | '/clientes/$id'
     | '/clientes/novo'
     | '/clientes/'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/exportar'
     | '/followup'
     | '/login'
+    | '/usuarios'
     | '/clientes/$id'
     | '/clientes/novo'
     | '/clientes'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/exportar'
     | '/followup'
     | '/login'
+    | '/usuarios'
     | '/clientes/$id'
     | '/clientes/novo'
     | '/clientes/'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   ExportarRoute: typeof ExportarRoute
   FollowupRoute: typeof FollowupRoute
   LoginRoute: typeof LoginRoute
+  UsuariosRoute: typeof UsuariosRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNovoRoute: typeof ClientesNovoRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
@@ -162,6 +175,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExportarRoute: ExportarRoute,
   FollowupRoute: FollowupRoute,
   LoginRoute: LoginRoute,
+  UsuariosRoute: UsuariosRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNovoRoute: ClientesNovoRoute,
   ClientesIndexRoute: ClientesIndexRoute,
@@ -250,3 +271,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
