@@ -92,6 +92,7 @@ export type Database = {
           phone: string | null
           price_max: number | null
           price_min: number | null
+          responsavel_id: string | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["lead_status"]
           tenant_id: string | null
@@ -114,6 +115,7 @@ export type Database = {
           phone?: string | null
           price_max?: number | null
           price_min?: number | null
+          responsavel_id?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
           tenant_id?: string | null
@@ -136,6 +138,7 @@ export type Database = {
           phone?: string | null
           price_max?: number | null
           price_min?: number | null
+          responsavel_id?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
           tenant_id?: string | null
