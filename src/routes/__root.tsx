@@ -16,7 +16,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TopNav } from "@/components/top-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Loader2, ShieldOff } from "lucide-react";
 
 function NotFoundComponent() {
@@ -53,7 +54,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <div className="mt-6 flex justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
             Tentar novamente
@@ -70,13 +74,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "AutoFlow — CRM para Lojas de Veículos" },
-      { name: "description", content: "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar." },
+      {
+        name: "description",
+        content:
+          "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar.",
+      },
       { property: "og:title", content: "AutoFlow — CRM para Lojas de Veículos" },
       { name: "twitter:title", content: "AutoFlow — CRM para Lojas de Veículos" },
-      { property: "og:description", content: "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar." },
-      { name: "twitter:description", content: "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ce6126aa-8000-4c45-80cd-3f70142debca/id-preview-8a56d427--50b29a49-453b-4acf-abb7-80d5df590b21.lovable.app-1781374373230.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ce6126aa-8000-4c45-80cd-3f70142debca/id-preview-8a56d427--50b29a49-453b-4acf-abb7-80d5df590b21.lovable.app-1781374373230.png" },
+      {
+        property: "og:description",
+        content:
+          "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar.",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ce6126aa-8000-4c45-80cd-3f70142debca/id-preview-8a56d427--50b29a49-453b-4acf-abb7-80d5df590b21.lovable.app-1781374373230.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ce6126aa-8000-4c45-80cd-3f70142debca/id-preview-8a56d427--50b29a49-453b-4acf-abb7-80d5df590b21.lovable.app-1781374373230.png",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
@@ -91,7 +115,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />
@@ -125,8 +151,7 @@ function BlockedScreen() {
         </div>
         <h1 className="text-xl font-semibold">Acesso bloqueado</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sua conta está bloqueada ou inativa. Entre em contato com o suporte
-          AutoFlow.
+          Sua conta está bloqueada ou inativa. Entre em contato com o suporte AutoFlow.
         </p>
         <button
           onClick={async () => {

@@ -12,10 +12,7 @@ const TenantPlanoSchema = z.enum(["starter", "pro", "white_label"]);
  * "super_admins_self_select" só devolve a linha se id = auth.uid(),
  * portanto a ausência de resultado é suficiente para negar acesso.
  */
-async function assertSuperAdmin(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-): Promise<void> {
+async function assertSuperAdmin(supabase: SupabaseClient<Database>, userId: string): Promise<void> {
   const { data, error } = await supabase
     .from("super_admins")
     .select("id")
@@ -23,9 +20,7 @@ async function assertSuperAdmin(
     .maybeSingle();
 
   if (error || !data) {
-    throw new Error(
-      "Acesso negado: apenas super admins podem executar esta operação",
-    );
+    throw new Error("Acesso negado: apenas super admins podem executar esta operação");
   }
 }
 
@@ -48,17 +43,14 @@ export const criarTenantComAdmin = createServerFn({ method: "POST" })
     // 1. Verificar que o chamador é super_admin
     await assertSuperAdmin(context.supabase, context.userId);
 
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // 2. Criar usuário no Supabase Auth
-    const { data: authUser, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: data.email_admin,
-        password: data.senha_temporaria,
-        email_confirm: true,
-      });
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email_admin,
+      password: data.senha_temporaria,
+      email_confirm: true,
+    });
 
     if (authError || !authUser.user) {
       throw new Error(authError?.message ?? "Erro ao criar usuário");
@@ -83,16 +75,14 @@ export const criarTenantComAdmin = createServerFn({ method: "POST" })
     }
 
     // 4. Criar user_profile vinculando usuário ao tenant
-    const { error: profileError } = await supabaseAdmin
-      .from("user_profiles")
-      .insert({
-        id: authUser.user.id,
-        tenant_id: tenant.id,
-        nome: data.nome_admin,
-        email: data.email_admin,
-        perfil: "admin_loja",
-        ativo: true,
-      });
+    const { error: profileError } = await supabaseAdmin.from("user_profiles").insert({
+      id: authUser.user.id,
+      tenant_id: tenant.id,
+      nome: data.nome_admin,
+      email: data.email_admin,
+      perfil: "admin_loja",
+      ativo: true,
+    });
 
     if (profileError) {
       // Rollback: remover tenant e usuário auth criados
@@ -125,16 +115,11 @@ export const atualizarTenant = createServerFn({ method: "POST" })
     // 1. Verificar que o chamador é super_admin
     await assertSuperAdmin(context.supabase, context.userId);
 
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // 2. Executar update com service role (após autorização confirmada)
     const { id, ...updates } = data;
-    const { error } = await supabaseAdmin
-      .from("tenants")
-      .update(updates)
-      .eq("id", id);
+    const { error } = await supabaseAdmin.from("tenants").update(updates).eq("id", id);
 
     if (error) throw new Error(error.message);
     return { ok: true };

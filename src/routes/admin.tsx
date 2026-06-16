@@ -32,41 +32,19 @@ type Tenant = Tables<"tenants">;
 // Helpers
 // ============================================================
 
-const PLANO_LABELS: Record<string, string> = {
-  starter: "Starter",
-  pro: "Pro",
-  white_label: "White Label",
-};
-
 const STATUS_LABELS: Record<string, string> = {
   ativo: "Ativo",
   inativo: "Inativo",
   bloqueado: "Bloqueado",
 };
 
-function PlanoBadge({ plano }: { plano: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
-        plano === "white_label" && "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-        plano === "pro" && "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-        plano === "starter" && "bg-muted text-muted-foreground",
-      )}
-    >
-      {plano === "white_label" && <Crown className="size-3" />}
-      {plano === "pro" && <Star className="size-3" />}
-      {PLANO_LABELS[plano] ?? plano}
-    </span>
-  );
-}
-
 function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
-        status === "ativo" && "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+        status === "ativo" &&
+          "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
         status === "inativo" && "bg-muted text-muted-foreground",
         status === "bloqueado" && "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
       )}
@@ -101,9 +79,7 @@ function TenantModal({ tenant, onClose, onSuccess }: TenantModalProps) {
   const [nome, setNome] = useState(tenant?.nome ?? "");
   const [emailAdmin, setEmailAdmin] = useState(tenant?.email_admin ?? "");
   const [nomeAdmin, setNomeAdmin] = useState("");
-  const [plano, setPlano] = useState<"starter" | "pro" | "white_label">(
-    (tenant?.plano as "starter" | "pro" | "white_label") ?? "starter",
-  );
+  const [plano, setPlano] = useState<"starter" | "pro" | "white_label">(tenant?.plano ?? "starter");
   const [senha, setSenha] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,9 +120,7 @@ function TenantModal({ tenant, onClose, onSuccess }: TenantModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl border border-border bg-card shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="font-semibold">
-            {isEdit ? "Editar loja" : "Nova loja"}
-          </h2>
+          <h2 className="font-semibold">{isEdit ? "Editar loja" : "Nova loja"}</h2>
           <button
             onClick={onClose}
             className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted"
@@ -213,9 +187,7 @@ function TenantModal({ tenant, onClose, onSuccess }: TenantModalProps) {
           <Field label="Plano">
             <select
               value={plano}
-              onChange={(e) =>
-                setPlano(e.target.value as "starter" | "pro" | "white_label")
-              }
+              onChange={(e) => setPlano(e.target.value as "starter" | "pro" | "white_label")}
               className={inputCls}
             >
               <option value="starter">Starter</option>
@@ -251,13 +223,7 @@ function TenantModal({ tenant, onClose, onSuccess }: TenantModalProps) {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium">{label}</label>
@@ -343,16 +309,13 @@ function AdminPage() {
   });
 
   function toggleBloqueio(tenant: Tenant) {
-    const novoStatus =
-      tenant.status === "bloqueado" ? "ativo" : "bloqueado";
+    const novoStatus = tenant.status === "bloqueado" ? "ativo" : "bloqueado";
     updateMutation.mutate(
       { id: tenant.id, status: novoStatus },
       {
         onSuccess: () =>
           toast.success(
-            novoStatus === "bloqueado"
-              ? `${tenant.nome} bloqueada`
-              : `${tenant.nome} desbloqueada`,
+            novoStatus === "bloqueado" ? `${tenant.nome} bloqueada` : `${tenant.nome} desbloqueada`,
           ),
       },
     );
@@ -394,9 +357,7 @@ function AdminPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-muted-foreground sm:block">
-            {nome}
-          </span>
+          <span className="hidden text-sm text-muted-foreground sm:block">{nome}</span>
           <button
             onClick={async () => {
               await signOut();
@@ -420,7 +381,10 @@ function AdminPage() {
             </p>
           </div>
           <button
-            onClick={() => { setEditingTenant(null); setModalOpen(true); }}
+            onClick={() => {
+              setEditingTenant(null);
+              setModalOpen(true);
+            }}
             className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Plus className="size-4" />
@@ -471,7 +435,10 @@ function AdminPage() {
               <Building2 className="size-8 opacity-40" />
               <p className="text-sm">Nenhuma loja cadastrada ainda</p>
               <button
-                onClick={() => { setEditingTenant(null); setModalOpen(true); }}
+                onClick={() => {
+                  setEditingTenant(null);
+                  setModalOpen(true);
+                }}
                 className="text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
                 Criar primeira loja
@@ -495,7 +462,10 @@ function AdminPage() {
                     <TenantRow
                       key={tenant.id}
                       tenant={tenant}
-                      onEdit={() => { setEditingTenant(tenant); setModalOpen(true); }}
+                      onEdit={() => {
+                        setEditingTenant(tenant);
+                        setModalOpen(true);
+                      }}
                       onToggleBloqueio={() => toggleBloqueio(tenant)}
                       onChangePlano={(p) => changePlano(tenant, p)}
                       updating={updateMutation.isPending}
@@ -542,16 +512,12 @@ function TenantRow({
       <td className="px-5 py-3.5">
         <span className="font-medium">{tenant.nome}</span>
       </td>
-      <td className="px-5 py-3.5 text-sm text-muted-foreground">
-        {tenant.email_admin}
-      </td>
+      <td className="px-5 py-3.5 text-sm text-muted-foreground">{tenant.email_admin}</td>
       <td className="px-5 py-3.5">
         <select
           value={tenant.plano}
           disabled={updating}
-          onChange={(e) =>
-            onChangePlano(e.target.value as "starter" | "pro" | "white_label")
-          }
+          onChange={(e) => onChangePlano(e.target.value as "starter" | "pro" | "white_label")}
           className={cn(
             "rounded-md border border-border bg-transparent py-0.5 pl-2 pr-6 text-xs font-medium",
             "cursor-pointer outline-none transition-colors hover:border-primary/50 focus:border-primary/60",
@@ -566,9 +532,7 @@ function TenantRow({
       <td className="px-5 py-3.5">
         <StatusBadge status={tenant.status} />
       </td>
-      <td className="px-5 py-3.5 text-sm text-muted-foreground">
-        {formatDate(tenant.created_at)}
-      </td>
+      <td className="px-5 py-3.5 text-sm text-muted-foreground">{formatDate(tenant.created_at)}</td>
       <td className="px-5 py-3.5">
         <div className="flex items-center justify-end gap-1">
           <button

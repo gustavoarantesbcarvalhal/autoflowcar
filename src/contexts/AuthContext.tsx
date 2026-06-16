@@ -1,18 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useEffect, useState, type ReactNode } from "react";
 import type { User, AuthChangeEvent } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type UserPerfil =
-  | "super_admin"
-  | "admin_loja"
-  | "gerente"
-  | "vendedor";
+export type UserPerfil = "super_admin" | "admin_loja" | "gerente" | "vendedor";
 export type TenantPlano = "starter" | "pro" | "white_label";
 export type TenantStatus = "ativo" | "inativo" | "bloqueado";
 
@@ -41,7 +31,8 @@ export interface AuthContextType {
   refreshPerfil: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 async function fetchPerfil(): Promise<PerfilData | null> {
   const { data, error } = await supabase.rpc("get_meu_perfil");
@@ -59,10 +50,7 @@ async function fetchPerfil(): Promise<PerfilData | null> {
 
 // Eventos que não mudam identidade do usuário nem suas permissões —
 // não é necessário recarregar o perfil nem entrar em estado de loading.
-const SKIP_RELOAD_EVENTS = new Set<AuthChangeEvent>([
-  "TOKEN_REFRESHED",
-  "USER_UPDATED",
-]);
+const SKIP_RELOAD_EVENTS = new Set<AuthChangeEvent>(["TOKEN_REFRESHED", "USER_UPDATED"]);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -135,10 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isSuperAdmin = perfilData?.perfil === "super_admin";
-  const temAcesso = !!(
-    perfilData &&
-    (isSuperAdmin || perfilData.tenant_status === "ativo")
-  );
+  const temAcesso = !!(perfilData && (isSuperAdmin || perfilData.tenant_status === "ativo"));
 
   return (
     <AuthContext.Provider
@@ -161,10 +146,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthContextType {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth deve ser usado dentro de AuthProvider");
-  return ctx;
 }

@@ -10,11 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as FollowupRouteImport } from './routes/followup'
 import { Route as ExportarRouteImport } from './routes/exportar'
 import { Route as EstoqueRouteImport } from './routes/estoque'
 import { Route as AgendaRouteImport } from './routes/agenda'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNovoRouteImport } from './routes/clientes.novo'
@@ -23,11 +23,6 @@ import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FollowupRoute = FollowupRouteImport.update({
@@ -48,6 +43,11 @@ const EstoqueRoute = EstoqueRouteImport.update({
 const AgendaRoute = AgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -73,24 +73,24 @@ const ClientesIdRoute = ClientesIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
   '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
+  '/login': typeof LoginRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/novo': typeof ClientesNovoRoute
   '/clientes/': typeof ClientesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
   '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
+  '/login': typeof LoginRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/novo': typeof ClientesNovoRoute
   '/clientes': typeof ClientesIndexRoute
@@ -98,12 +98,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
   '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
+  '/login': typeof LoginRoute
   '/clientes/$id': typeof ClientesIdRoute
   '/clientes/novo': typeof ClientesNovoRoute
   '/clientes/': typeof ClientesIndexRoute
@@ -112,36 +112,36 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/login'
     | '/admin'
     | '/agenda'
     | '/estoque'
     | '/exportar'
     | '/followup'
+    | '/login'
     | '/clientes/$id'
     | '/clientes/novo'
     | '/clientes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/login'
     | '/admin'
     | '/agenda'
     | '/estoque'
     | '/exportar'
     | '/followup'
+    | '/login'
     | '/clientes/$id'
     | '/clientes/novo'
     | '/clientes'
   id:
     | '__root__'
     | '/'
-    | '/login'
     | '/admin'
     | '/agenda'
     | '/estoque'
     | '/exportar'
     | '/followup'
+    | '/login'
     | '/clientes/$id'
     | '/clientes/novo'
     | '/clientes/'
@@ -149,12 +149,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  LoginRoute: typeof LoginRoute
   AdminRoute: typeof AdminRoute
   AgendaRoute: typeof AgendaRoute
   EstoqueRoute: typeof EstoqueRoute
   ExportarRoute: typeof ExportarRoute
   FollowupRoute: typeof FollowupRoute
+  LoginRoute: typeof LoginRoute
   ClientesIdRoute: typeof ClientesIdRoute
   ClientesNovoRoute: typeof ClientesNovoRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
@@ -167,13 +167,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/followup': {
@@ -202,6 +195,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/agenda'
       preLoaderRoute: typeof AgendaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -237,12 +237,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  LoginRoute: LoginRoute,
   AdminRoute: AdminRoute,
   AgendaRoute: AgendaRoute,
   EstoqueRoute: EstoqueRoute,
   ExportarRoute: ExportarRoute,
   FollowupRoute: FollowupRoute,
+  LoginRoute: LoginRoute,
   ClientesIdRoute: ClientesIdRoute,
   ClientesNovoRoute: ClientesNovoRoute,
   ClientesIndexRoute: ClientesIndexRoute,
@@ -250,3 +250,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

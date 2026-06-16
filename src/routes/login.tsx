@@ -12,8 +12,7 @@ export const Route = createFileRoute("/login")({
 type View = "login" | "forgot" | "reset_sent";
 
 function LoginPage() {
-  const { user, loading, tenantStatus, signIn, resetPassword, signOut } =
-    useAuth();
+  const { user, loading, tenantStatus, signIn, resetPassword, signOut } = useAuth();
 
   const [view, setView] = useState<View>("login");
   const [email, setEmail] = useState("");
@@ -124,8 +123,7 @@ function LoginPage() {
               <CheckCircle className="size-10 text-green-500" />
               <h2 className="text-lg font-semibold">E-mail enviado!</h2>
               <p className="text-sm text-muted-foreground">
-                Verifique sua caixa de entrada em <strong>{email}</strong> para
-                redefinir sua senha.
+                Verifique sua caixa de entrada em <strong>{email}</strong> para redefinir sua senha.
               </p>
               <button
                 onClick={() => setView("login")}
@@ -189,11 +187,7 @@ function LoginPage() {
                     onClick={() => setShowPass((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showPass ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
+                    {showPass ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
               </div>
@@ -201,7 +195,10 @@ function LoginPage() {
 
             <button
               type="button"
-              onClick={() => { setView("forgot"); setError(null); }}
+              onClick={() => {
+                setView("forgot");
+                setError(null);
+              }}
               className="mt-2 block text-xs text-muted-foreground underline-offset-4 hover:underline"
             >
               Esqueci minha senha
@@ -271,7 +268,10 @@ function LoginPage() {
 
             <button
               type="button"
-              onClick={() => { setView("login"); setError(null); }}
+              onClick={() => {
+                setView("login");
+                setError(null);
+              }}
               className="mt-3 block w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
             >
               Voltar ao login
