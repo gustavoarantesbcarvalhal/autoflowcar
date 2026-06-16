@@ -50,7 +50,6 @@ export function TopNav() {
 
   async function handleLogout() {
     await signOut();
-    navigate({ to: "/login" });
   }
 
   const perfilLabel: Record<string, string> = {

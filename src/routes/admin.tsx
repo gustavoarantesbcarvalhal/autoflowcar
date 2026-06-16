@@ -378,10 +378,7 @@ function AdminPage() {
             {diagLoading ? "..." : "diag"}
           </button>
           <button
-            onClick={async () => {
-              await signOut();
-              navigate({ to: "/login" });
-            }}
+            onClick={() => signOut()}
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <LogOut className="size-4" />
