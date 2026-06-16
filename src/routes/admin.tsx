@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { criarTenantComAdmin, atualizarTenant } from "@/lib/api/admin.functions";
+import { criarTenantComAdmin, atualizarTenant, diagnosarServidor } from "@/lib/api/admin.functions";
 import type { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import {
@@ -274,6 +274,8 @@ function AdminPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [diagResult, setDiagResult] = useState<Record<string, string | boolean> | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
 
   // Guard: only super_admin
   useEffect(() => {
@@ -359,6 +361,23 @@ function AdminPage() {
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-muted-foreground sm:block">{nome}</span>
           <button
+            disabled={diagLoading}
+            onClick={async () => {
+              setDiagLoading(true);
+              try {
+                const r = await diagnosarServidor();
+                setDiagResult(r as Record<string, string | boolean>);
+              } catch (e) {
+                setDiagResult({ erro: e instanceof Error ? e.message : String(e) });
+              } finally {
+                setDiagLoading(false);
+              }
+            }}
+            className="rounded-md px-3 py-1.5 text-xs font-mono text-muted-foreground transition-colors hover:bg-amber-100 hover:text-amber-800"
+          >
+            {diagLoading ? "..." : "diag"}
+          </button>
+          <button
             onClick={async () => {
               await signOut();
               navigate({ to: "/login" });
@@ -370,6 +389,20 @@ function AdminPage() {
           </button>
         </div>
       </header>
+
+      {diagResult && (
+        <div className="mx-auto max-w-6xl px-4 pt-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">Diagnóstico do Servidor</span>
+              <button onClick={() => setDiagResult(null)} className="text-xs text-amber-600 hover:underline">fechar</button>
+            </div>
+            <pre className="overflow-x-auto text-xs text-amber-900 dark:text-amber-200">
+              {JSON.stringify(diagResult, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Page header */}
