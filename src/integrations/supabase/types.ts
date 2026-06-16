@@ -114,6 +114,7 @@ export type Database = {
           id: string
           notes: string | null
           scheduled_at: string
+          tenant_id: string | null
           title: string | null
           type: Database["public"]["Enums"]["appointment_type"]
           vehicle_id: string | null
@@ -125,6 +126,7 @@ export type Database = {
           id?: string
           notes?: string | null
           scheduled_at: string
+          tenant_id?: string | null
           title?: string | null
           type?: Database["public"]["Enums"]["appointment_type"]
           vehicle_id?: string | null
@@ -136,6 +138,7 @@ export type Database = {
           id?: string
           notes?: string | null
           scheduled_at?: string
+          tenant_id?: string | null
           title?: string | null
           type?: Database["public"]["Enums"]["appointment_type"]
           vehicle_id?: string | null
@@ -176,6 +179,7 @@ export type Database = {
           price_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["lead_status"]
+          tenant_id: string | null
           updated_at: string
           whatsapp: string | null
         }
@@ -197,6 +201,7 @@ export type Database = {
           price_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tenant_id?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
@@ -218,6 +223,7 @@ export type Database = {
           price_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tenant_id?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
@@ -229,6 +235,7 @@ export type Database = {
           created_at: string
           customer_id: string
           id: string
+          tenant_id: string | null
           type: Database["public"]["Enums"]["interaction_type"]
           vehicle_id: string | null
         }
@@ -237,6 +244,7 @@ export type Database = {
           created_at?: string
           customer_id: string
           id?: string
+          tenant_id?: string | null
           type?: Database["public"]["Enums"]["interaction_type"]
           vehicle_id?: string | null
         }
@@ -245,6 +253,7 @@ export type Database = {
           created_at?: string
           customer_id?: string
           id?: string
+          tenant_id?: string | null
           type?: Database["public"]["Enums"]["interaction_type"]
           vehicle_id?: string | null
         }
@@ -276,6 +285,7 @@ export type Database = {
           notes: string | null
           price: number | null
           status: Database["public"]["Enums"]["vehicle_status"]
+          tenant_id: string | null
           updated_at: string
           year: number | null
         }
@@ -289,6 +299,7 @@ export type Database = {
           notes?: string | null
           price?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tenant_id?: string | null
           updated_at?: string
           year?: number | null
         }
@@ -301,6 +312,7 @@ export type Database = {
           model?: string
           notes?: string | null
           price?: number | null
+          tenant_id?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           updated_at?: string
           year?: number | null
