@@ -5,6 +5,8 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useNavigate,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -14,6 +16,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TopNav } from "@/components/top-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Loader2, ShieldOff } from "lucide-react";
 
 function NotFoundComponent() {
   return (
@@ -101,15 +105,107 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <div className="min-h-screen bg-surface text-foreground">
-          <TopNav />
-          <main className="pb-20 md:pb-0">
-            <Outlet />
-          </main>
-          <MobileNav />
-          <Toaster richColors position="top-right" />
-        </div>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+function BlockedScreen() {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+      <div className="max-w-sm text-center">
+        <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-red-100 dark:bg-red-900/30">
+          <ShieldOff className="size-6 text-red-600 dark:text-red-400" />
+        </div>
+        <h1 className="text-xl font-semibold">Acesso bloqueado</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Sua conta está bloqueada ou inativa. Entre em contato com o suporte
+          AutoFlow.
+        </p>
+        <button
+          onClick={async () => {
+            await signOut();
+            navigate({ to: "/login" });
+          }}
+          className="mt-6 text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Sair da conta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppShell() {
+  const { user, loading, isSuperAdmin, temAcesso } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+
+  const isLoginPage = pathname === "/login";
+  const isAdminPage = pathname.startsWith("/admin");
+  const isPublicPage = isLoginPage;
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user && !isPublicPage) {
+      navigate({ to: "/login", replace: true });
+      return;
+    }
+
+    if (user && isLoginPage) {
+      navigate({ to: isSuperAdmin ? "/admin" : "/", replace: true });
+    }
+  }, [loading, user, isPublicPage, isLoginPage, isSuperAdmin, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Login page — no chrome
+  if (isLoginPage) {
+    return (
+      <>
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </>
+    );
+  }
+
+  // Admin area — own header is rendered by admin.tsx
+  if (isAdminPage) {
+    return (
+      <>
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </>
+    );
+  }
+
+  // Tenant blocked: user authenticated but no access
+  if (user && !temAcesso) {
+    return <BlockedScreen />;
+  }
+
+  // Main app with nav
+  return (
+    <div className="min-h-screen bg-surface text-foreground">
+      <TopNav />
+      <main className="pb-20 md:pb-0">
+        <Outlet />
+      </main>
+      <MobileNav />
+      <Toaster richColors position="top-right" />
+    </div>
   );
 }

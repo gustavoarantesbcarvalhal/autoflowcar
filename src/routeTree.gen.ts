@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as FollowupRouteImport } from './routes/followup'
 import { Route as ExportarRouteImport } from './routes/exportar'
 import { Route as EstoqueRouteImport } from './routes/estoque'
@@ -18,6 +20,16 @@ import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNovoRouteImport } from './routes/clientes.novo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FollowupRoute = FollowupRouteImport.update({
   id: '/followup',
   path: '/followup',
@@ -61,6 +73,8 @@ const ClientesIdRoute = ClientesIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
@@ -71,6 +85,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
@@ -82,6 +98,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
@@ -94,6 +112,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
+    | '/admin'
     | '/agenda'
     | '/estoque'
     | '/exportar'
@@ -104,6 +124,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
+    | '/admin'
     | '/agenda'
     | '/estoque'
     | '/exportar'
@@ -114,6 +136,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/login'
+    | '/admin'
     | '/agenda'
     | '/estoque'
     | '/exportar'
@@ -125,6 +149,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  AdminRoute: typeof AdminRoute
   AgendaRoute: typeof AgendaRoute
   EstoqueRoute: typeof EstoqueRoute
   ExportarRoute: typeof ExportarRoute
@@ -136,6 +162,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/followup': {
       id: '/followup'
       path: '/followup'
@@ -197,6 +237,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  AdminRoute: AdminRoute,
   AgendaRoute: AgendaRoute,
   EstoqueRoute: EstoqueRoute,
   ExportarRoute: ExportarRoute,

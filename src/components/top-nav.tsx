@@ -1,7 +1,17 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Moon, Sun, Search, Plus, MessageCircle } from "lucide-react";
-import { useState } from "react";
+import {
+  Moon,
+  Sun,
+  Search,
+  Plus,
+  MessageCircle,
+  LogOut,
+  ChevronDown,
+  User,
+} from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { useTheme } from "./theme-provider";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -16,14 +26,39 @@ const NAV = [
 export function TopNav() {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const { nome, perfil, signOut } = useAuth();
   const [q, setQ] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!q.trim()) return;
     navigate({ to: "/clientes", search: { q: q.trim() } as never });
   }
+
+  async function handleLogout() {
+    await signOut();
+    navigate({ to: "/login" });
+  }
+
+  const perfilLabel: Record<string, string> = {
+    admin_loja: "Admin",
+    gerente: "Gerente",
+    vendedor: "Vendedor",
+    super_admin: "Super Admin",
+  };
 
   return (
     <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md">
@@ -36,7 +71,8 @@ export function TopNav() {
         </Link>
         <div className="hidden items-center gap-1 md:flex">
           {NAV.map((n) => {
-            const active = n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
+            const active =
+              n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
             return (
               <Link
                 key={n.to}
@@ -74,20 +110,66 @@ export function TopNav() {
         </Link>
         <button
           onClick={toggle}
-          className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Alternar tema"
         >
-          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          {theme === "dark" ? (
+            <Sun className="size-4" />
+          ) : (
+            <Moon className="size-4" />
+          )}
         </button>
         <a
           href="https://wa.me/"
           target="_blank"
           rel="noreferrer"
-          className="grid size-9 place-items-center rounded-md text-whatsapp hover:bg-muted transition-colors"
+          className="grid size-9 place-items-center rounded-md text-whatsapp transition-colors hover:bg-muted"
           aria-label="WhatsApp"
         >
           <MessageCircle className="size-4" />
         </a>
+
+        {/* User menu */}
+        {nome && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setUserMenuOpen((v) => !v)}
+              className={cn(
+                "flex h-9 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors",
+                "hover:bg-muted hover:text-foreground",
+                userMenuOpen && "bg-muted text-foreground",
+              )}
+            >
+              <div className="grid size-6 place-items-center rounded-full bg-primary/20 text-primary">
+                <User className="size-3.5" />
+              </div>
+              <span className="hidden max-w-[120px] truncate md:block">{nome}</span>
+              <ChevronDown className="size-3.5" />
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-card shadow-lg">
+                <div className="border-b border-border px-4 py-3">
+                  <p className="font-medium leading-none">{nome}</p>
+                  {perfil && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {perfilLabel[perfil] ?? perfil}
+                    </p>
+                  )}
+                </div>
+                <div className="p-1">
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <LogOut className="size-4" />
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </nav>
   );
