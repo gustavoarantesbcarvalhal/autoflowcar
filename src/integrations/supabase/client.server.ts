@@ -7,19 +7,25 @@ import type { Database } from './types';
 
 function createSupabaseAdminClient() {
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SUPABASE_ADMIN_JWT = process.env.SUPABASE_ADMIN_JWT;
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.log('[supabase-admin] URL:', SUPABASE_URL ?? '(ausente)');
+  console.log('[supabase-admin] SUPABASE_ADMIN_JWT existe:', !!SUPABASE_ADMIN_JWT);
+  console.log('[supabase-admin] prefixo da chave:', SUPABASE_ADMIN_JWT ? SUPABASE_ADMIN_JWT.slice(0, 20) : '(ausente)');
+  console.log('[supabase-admin] formato:', SUPABASE_ADMIN_JWT?.startsWith('eyJ') ? 'JWT ✓' : SUPABASE_ADMIN_JWT?.startsWith('sb_') ? 'sb_* ✗' : '(ausente ou desconhecido)');
+
+  if (!SUPABASE_URL || !SUPABASE_ADMIN_JWT) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
+      ...(!SUPABASE_ADMIN_JWT ? ['SUPABASE_ADMIN_JWT'] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-    console.error(`[Supabase] ${message}`);
+    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Cadastre SUPABASE_ADMIN_JWT no painel do Lovable.`;
+    console.error(`[supabase-admin] ERRO: ${message}`);
     throw new Error(message);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  console.log('[supabase-admin] cliente inicializado com sucesso');
+  return createClient<Database>(SUPABASE_URL, SUPABASE_ADMIN_JWT, {
     auth: {
       storage: undefined,
       persistSession: false,

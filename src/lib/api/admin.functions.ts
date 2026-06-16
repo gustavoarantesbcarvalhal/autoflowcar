@@ -12,16 +12,17 @@ export const diagnosarServidor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const url = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+    const adminJwt = process.env.SUPABASE_ADMIN_JWT || "";
+    const legacyKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
     const publishable = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
 
     return {
       supabase_url: url,
-      service_role_key_exists: key.length > 0,
-      service_role_key_prefix: key.slice(0, 20),
-      service_role_key_format: key.startsWith("eyJ") ? "JWT ✓" : key.startsWith("sb_secret") ? "sb_secret ✗ (não suportado pelo SDK v2)" : key.length === 0 ? "AUSENTE" : "desconhecido",
+      SUPABASE_ADMIN_JWT_exists: adminJwt.length > 0,
+      SUPABASE_ADMIN_JWT_prefix: adminJwt.slice(0, 20),
+      SUPABASE_ADMIN_JWT_format: adminJwt.startsWith("eyJ") ? "JWT ✓" : adminJwt.startsWith("sb_") ? "sb_* ✗" : adminJwt.length === 0 ? "AUSENTE ← cadastrar no Lovable" : "desconhecido",
+      SUPABASE_SERVICE_ROLE_KEY_still_present: legacyKey.length > 0,
       publishable_key_prefix: publishable.slice(0, 20),
-      publishable_key_format: publishable.startsWith("sb_publishable") ? "sb_publishable ✓" : publishable.startsWith("eyJ") ? "JWT" : "desconhecido",
     };
   });
 
