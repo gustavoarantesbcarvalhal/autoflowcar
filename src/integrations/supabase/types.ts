@@ -22,6 +22,7 @@ export type Database = {
           id: string
           notes: string | null
           scheduled_at: string
+          tenant_id: string | null
           title: string | null
           type: Database["public"]["Enums"]["appointment_type"]
           vehicle_id: string | null
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           notes?: string | null
           scheduled_at: string
+          tenant_id?: string | null
           title?: string | null
           type?: Database["public"]["Enums"]["appointment_type"]
           vehicle_id?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           notes?: string | null
           scheduled_at?: string
+          tenant_id?: string | null
           title?: string | null
           type?: Database["public"]["Enums"]["appointment_type"]
           vehicle_id?: string | null
@@ -54,6 +57,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
@@ -84,6 +94,7 @@ export type Database = {
           price_min: number | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["lead_status"]
+          tenant_id: string | null
           updated_at: string
           whatsapp: string | null
         }
@@ -105,6 +116,7 @@ export type Database = {
           price_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tenant_id?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
@@ -126,10 +138,19 @@ export type Database = {
           price_min?: number | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tenant_id?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interactions: {
         Row: {
@@ -137,6 +158,7 @@ export type Database = {
           created_at: string
           customer_id: string
           id: string
+          tenant_id: string | null
           type: Database["public"]["Enums"]["interaction_type"]
           vehicle_id: string | null
         }
@@ -145,6 +167,7 @@ export type Database = {
           created_at?: string
           customer_id: string
           id?: string
+          tenant_id?: string | null
           type?: Database["public"]["Enums"]["interaction_type"]
           vehicle_id?: string | null
         }
@@ -153,6 +176,7 @@ export type Database = {
           created_at?: string
           customer_id?: string
           id?: string
+          tenant_id?: string | null
           type?: Database["public"]["Enums"]["interaction_type"]
           vehicle_id?: string | null
         }
@@ -165,10 +189,109 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "interactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "interactions_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      super_admins: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          nome: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      tenants: {
+        Row: {
+          cor_primaria: string
+          created_at: string
+          email_admin: string
+          id: string
+          logo_url: string | null
+          nome: string
+          plano: Database["public"]["Enums"]["tenant_plano"]
+          status: Database["public"]["Enums"]["tenant_status"]
+        }
+        Insert: {
+          cor_primaria?: string
+          created_at?: string
+          email_admin: string
+          id?: string
+          logo_url?: string | null
+          nome: string
+          plano?: Database["public"]["Enums"]["tenant_plano"]
+          status?: Database["public"]["Enums"]["tenant_status"]
+        }
+        Update: {
+          cor_primaria?: string
+          created_at?: string
+          email_admin?: string
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          plano?: Database["public"]["Enums"]["tenant_plano"]
+          status?: Database["public"]["Enums"]["tenant_status"]
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          perfil: Database["public"]["Enums"]["user_perfil"]
+          tenant_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          email: string
+          id: string
+          nome: string
+          perfil?: Database["public"]["Enums"]["user_perfil"]
+          tenant_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          perfil?: Database["public"]["Enums"]["user_perfil"]
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -184,6 +307,7 @@ export type Database = {
           notes: string | null
           price: number | null
           status: Database["public"]["Enums"]["vehicle_status"]
+          tenant_id: string | null
           updated_at: string
           year: number | null
         }
@@ -197,6 +321,7 @@ export type Database = {
           notes?: string | null
           price?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tenant_id?: string | null
           updated_at?: string
           year?: number | null
         }
@@ -210,17 +335,52 @@ export type Database = {
           notes?: string | null
           price?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tenant_id?: string | null
           updated_at?: string
           year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      criar_tenant: {
+        Args: {
+          p_cor_primaria?: string
+          p_email_admin: string
+          p_logo_url?: string
+          p_nome: string
+          p_plano?: Database["public"]["Enums"]["tenant_plano"]
+        }
+        Returns: string
+      }
+      get_meu_perfil: {
+        Args: never
+        Returns: {
+          email: string
+          nome: string
+          perfil: string
+          plano: string
+          tenant_id: string
+          tenant_status: string
+        }[]
+      }
+      is_super_admin: { Args: never; Returns: boolean }
+      meu_perfil_enum: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_perfil"]
+      }
+      meu_tenant_id: { Args: never; Returns: string }
     }
     Enums: {
       appointment_type: "retorno" | "visita" | "test_drive"
@@ -251,6 +411,9 @@ export type Database = {
         | "proposta_enviada"
         | "venda_realizada"
         | "perdido"
+      tenant_plano: "starter" | "pro" | "white_label"
+      tenant_status: "ativo" | "inativo" | "bloqueado"
+      user_perfil: "super_admin" | "admin_loja" | "gerente" | "vendedor"
       vehicle_status: "disponivel" | "reservado" | "vendido"
     }
     CompositeTypes: {
@@ -410,6 +573,9 @@ export const Constants = {
         "venda_realizada",
         "perdido",
       ],
+      tenant_plano: ["starter", "pro", "white_label"],
+      tenant_status: ["ativo", "inativo", "bloqueado"],
+      user_perfil: ["super_admin", "admin_loja", "gerente", "vendedor"],
       vehicle_status: ["disponivel", "reservado", "vendido"],
     },
   },
