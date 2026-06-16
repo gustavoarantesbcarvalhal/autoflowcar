@@ -58,33 +58,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const mountedAt = performance.now();
+    console.log(`[AUTH] provider mounted, loading=true, t=0ms`);
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const t0 = performance.now();
+      const elapsed = (t0 - mountedAt).toFixed(0);
       const currentUser = session?.user ?? null;
 
-      // Refresh de token e atualização de metadados não alteram acesso.
-      // Apenas atualiza o user object sem entrar em estado de loading.
+      console.log(`[AUTH] event="${event}" user=${!!currentUser} t=${elapsed}ms`);
+
       if (SKIP_RELOAD_EVENTS.has(event)) {
         setUser(currentUser);
+        console.log(`[AUTH] skip reload for ${event}`);
         return;
       }
 
-      // Para todos os outros eventos (INITIAL_SESSION, SIGNED_IN, SIGNED_OUT,
-      // PASSWORD_RECOVERY, MFA_CHALLENGE_VERIFIED): re-entra em loading ANTES
-      // de setar user. Isso garante que nenhum render intermediário mostre
-      // user≠null com perfilData=null (causa do flash de BlockedScreen).
       setLoading(true);
       setUser(currentUser);
 
       if (currentUser) {
+        const t1 = performance.now();
+        console.log(`[AUTH] fetchPerfil start t=${(t1 - mountedAt).toFixed(0)}ms`);
         const data = await fetchPerfil();
+        const t2 = performance.now();
+        console.log(`[AUTH] fetchPerfil done in ${(t2 - t1).toFixed(0)}ms, perfil=${data?.perfil ?? "null"}`);
         setPerfilData(data);
       } else {
         setPerfilData(null);
       }
 
-      // loading=false só depois que o perfil está resolvido.
+      const tf = performance.now();
+      console.log(`[AUTH] loading=false t=${(tf - mountedAt).toFixed(0)}ms (total desde mount)`);
       setLoading(false);
     });
 

@@ -141,7 +141,6 @@ function RootComponent() {
 
 function BlockedScreen() {
   const { signOut } = useAuth();
-  const navigate = useNavigate();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
@@ -154,10 +153,7 @@ function BlockedScreen() {
           Sua conta está bloqueada ou inativa. Entre em contato com o suporte AutoFlow.
         </p>
         <button
-          onClick={async () => {
-            await signOut();
-            navigate({ to: "/login" });
-          }}
+          onClick={() => signOut()}
           className="mt-6 text-sm font-medium text-primary underline-offset-4 hover:underline"
         >
           Sair da conta
@@ -178,33 +174,38 @@ function AppShell() {
   useEffect(() => {
     if (loading) return;
 
+    console.log(`[SHELL] guard: user=${!!user} isLoginPage=${isLoginPage} temAcesso=${temAcesso} isSuperAdmin=${isSuperAdmin}`);
+
     if (!user && !isLoginPage) {
+      console.log(`[SHELL] → /login (sem usuário)`);
       navigate({ to: "/login", replace: true });
       return;
     }
 
-    // Só redireciona para fora do login se o usuário TEM acesso.
-    // Usuários bloqueados ficam em /login para ver o banner e o botão de logout.
     if (user && isLoginPage && temAcesso) {
-      navigate({ to: isSuperAdmin ? "/admin" : "/", replace: true });
+      const dest = isSuperAdmin ? "/admin" : "/";
+      console.log(`[SHELL] → ${dest} (usuário autenticado saindo do login)`);
+      navigate({ to: dest, replace: true });
     }
   }, [loading, user, isLoginPage, isSuperAdmin, temAcesso, navigate]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface">
-        <Loader2 className="size-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Login page — no chrome
+  // Login page: renderiza imediatamente sem esperar o loading.
+  // O redirect para o dashboard acontece via useEffect quando loading=false.
+  // Isso elimina o spinner de 500ms-1s causado pelo refresh de token do Supabase.
   if (isLoginPage) {
     return (
       <>
         <Outlet />
         <Toaster richColors position="top-right" />
       </>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
     );
   }
 

@@ -8,6 +8,7 @@ import {
   LogOut,
   ChevronDown,
   User,
+  Loader2,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "./theme-provider";
@@ -29,6 +30,7 @@ export function TopNav() {
   const { nome, perfil, signOut } = useAuth();
   const [q, setQ] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -49,7 +51,14 @@ export function TopNav() {
   }
 
   async function handleLogout() {
-    await signOut();
+    setLoggingOut(true);
+    console.log(`[LOGOUT] signOut iniciado t=${performance.now().toFixed(0)}ms`);
+    try {
+      await signOut();
+      console.log(`[LOGOUT] signOut resolvido t=${performance.now().toFixed(0)}ms`);
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   const perfilLabel: Record<string, string> = {
@@ -159,10 +168,15 @@ export function TopNav() {
                 <div className="p-1">
                   <button
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    disabled={loggingOut}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
                   >
-                    <LogOut className="size-4" />
-                    Sair
+                    {loggingOut ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <LogOut className="size-4" />
+                    )}
+                    {loggingOut ? "Saindo…" : "Sair"}
                   </button>
                 </div>
               </div>

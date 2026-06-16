@@ -21,9 +21,6 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // O redirect pós-login é centralizado em AppShell (__root.tsx).
-  // LoginPage só precisa lidar com o que é específico do formulário.
-
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -71,16 +68,7 @@ function LoginPage() {
     }
   }
 
-  // Show blocking error after login attempt if tenant is blocked
   const isBlocked = user && !loading && tenantStatus === "bloqueado";
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface">
-        <Loader2 className="size-6 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">

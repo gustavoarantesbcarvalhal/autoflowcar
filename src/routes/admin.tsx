@@ -276,6 +276,7 @@ function AdminPage() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [diagResult, setDiagResult] = useState<Record<string, string | boolean> | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Guard: only super_admin
   useEffect(() => {
@@ -378,11 +379,15 @@ function AdminPage() {
             {diagLoading ? "..." : "diag"}
           </button>
           <button
-            onClick={() => signOut()}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            disabled={loggingOut}
+            onClick={async () => {
+              setLoggingOut(true);
+              try { await signOut(); } finally { setLoggingOut(false); }
+            }}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
           >
-            <LogOut className="size-4" />
-            Sair
+            {loggingOut ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+            {loggingOut ? "Saindo…" : "Sair"}
           </button>
         </div>
       </header>
