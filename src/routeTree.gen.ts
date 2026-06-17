@@ -40,7 +40,7 @@ const ExportarRoute = ExportarRouteImport.update({
   id: '/exportar',
   path: '/exportar',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/exportar.lazy').then((d) => d.Route))
 const EstoqueRoute = EstoqueRouteImport.update({
   id: '/estoque',
   path: '/estoque',
@@ -65,7 +65,7 @@ const ClientesIndexRoute = ClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/clientes.index.lazy').then((d) => d.Route))
 const ClientesNovoRoute = ClientesNovoRouteImport.update({
   id: '/clientes/novo',
   path: '/clientes/novo',

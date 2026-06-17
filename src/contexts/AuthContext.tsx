@@ -52,14 +52,31 @@ async function fetchPerfil(): Promise<PerfilData | null> {
 // não é necessário recarregar o perfil nem entrar em estado de loading.
 const SKIP_RELOAD_EVENTS = new Set<AuthChangeEvent>(["TOKEN_REFRESHED", "USER_UPDATED"]);
 
+// Verifica sincronamente se existe uma sessão no localStorage.
+// Supabase v2 armazena a sessão como `sb-{projectRef}-auth-token`.
+// Se não existe, sabemos imediatamente (sem rede) que não há usuário logado
+// e podemos iniciar com loading=false, eliminando o spinner desnecessário.
+function hasStoredSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return Object.keys(localStorage).some(
+      (k) => k.endsWith("-auth-token") && !k.endsWith("-code-verifier"),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [perfilData, setPerfilData] = useState<PerfilData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Inicia como false quando não há sessão armazenada: evita spinner antes de /login.
+  // Inicia como true quando há sessão: aguarda validação/refresh do Supabase.
+  const [loading, setLoading] = useState(() => hasStoredSession());
 
   useEffect(() => {
     const mountedAt = performance.now();
-    console.log(`[AUTH] provider mounted, loading=true, t=0ms`);
+    console.log(`[AUTH] provider mounted, loading=${hasStoredSession()}, t=0ms`);
 
     const {
       data: { subscription },

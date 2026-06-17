@@ -201,6 +201,14 @@ function AppShell() {
     );
   }
 
+  // Auth resolveu, sem usuário, fora do login: retorna null enquanto o useEffect
+  // dispara o navigate. Evita flash do conteúdo autenticado (TopNav, Outlet) antes
+  // do redirect — com loading=false imediato (hasStoredSession=false), esse caso
+  // acontece no primeiro render.
+  if (!loading && !user) {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface">
