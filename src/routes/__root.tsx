@@ -174,17 +174,13 @@ function AppShell() {
   useEffect(() => {
     if (loading) return;
 
-    console.log(`[SHELL] guard: user=${!!user} isLoginPage=${isLoginPage} temAcesso=${temAcesso} isSuperAdmin=${isSuperAdmin}`);
-
     if (!user && !isLoginPage) {
-      console.log(`[SHELL] → /login (sem usuário)`);
       navigate({ to: "/login", replace: true });
       return;
     }
 
     if (user && isLoginPage && temAcesso) {
       const dest = isSuperAdmin ? "/admin" : "/";
-      console.log(`[SHELL] → ${dest} (usuário autenticado saindo do login)`);
       navigate({ to: dest, replace: true });
     }
   }, [loading, user, isLoginPage, isSuperAdmin, temAcesso, navigate]);

@@ -75,21 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(() => hasStoredSession());
 
   useEffect(() => {
-    const mountedAt = performance.now();
-    console.log(`[AUTH] provider mounted, loading=${hasStoredSession()}, t=0ms`);
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const t0 = performance.now();
-      const elapsed = (t0 - mountedAt).toFixed(0);
       const currentUser = session?.user ?? null;
-
-      console.log(`[AUTH] event="${event}" user=${!!currentUser} t=${elapsed}ms`);
 
       if (SKIP_RELOAD_EVENTS.has(event)) {
         setUser(currentUser);
-        console.log(`[AUTH] skip reload for ${event}`);
         return;
       }
 
@@ -97,18 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(currentUser);
 
       if (currentUser) {
-        const t1 = performance.now();
-        console.log(`[AUTH] fetchPerfil start t=${(t1 - mountedAt).toFixed(0)}ms`);
         const data = await fetchPerfil();
-        const t2 = performance.now();
-        console.log(`[AUTH] fetchPerfil done in ${(t2 - t1).toFixed(0)}ms, perfil=${data?.perfil ?? "null"}`);
         setPerfilData(data);
       } else {
         setPerfilData(null);
       }
 
-      const tf = performance.now();
-      console.log(`[AUTH] loading=false t=${(tf - mountedAt).toFixed(0)}ms (total desde mount)`);
       setLoading(false);
     });
 

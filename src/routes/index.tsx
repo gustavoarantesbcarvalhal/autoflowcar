@@ -46,10 +46,7 @@ async function fetchDashboard() {
   const [customers, appts] = await Promise.all([
     supabase
       .from("customers")
-      .select(
-        "id,name,phone,whatsapp,status,last_contact_at,next_return_at," +
-        "interest_brand,interest_model,price_max,responsavel_id,created_at,updated_at,sold_at,sale_value",
-      )
+      .select("id,name,phone,whatsapp,status,last_contact_at,next_return_at,interest_brand,interest_model,price_max,responsavel_id,created_at,updated_at,sold_at,sale_value")
       .order("created_at", { ascending: false }),
     supabase
       .from("appointments")
@@ -89,12 +86,13 @@ function Kpi({
   hint?: string;
   tone?: "primary" | "danger" | "success" | "warning";
 }) {
-  const cls = {
+  const clsMap = {
     primary: "text-primary",
     danger:  "text-destructive",
     success: "text-emerald-600 dark:text-emerald-400",
     warning: "text-amber-500 dark:text-amber-400",
-  }[tone ?? ""] ?? "text-foreground";
+  };
+  const cls = tone ? clsMap[tone] : "text-foreground";
 
   return (
     <div className="bg-card p-4 md:p-5">
@@ -173,31 +171,26 @@ function Dashboard() {
 
   const salesPeriod = useMemo(
     () =>
-      allCustomers.filter((c) => {
-        const r = c as Record<string, string | null>;
-        return c.status === "venda_realizada" && r.sold_at != null && new Date(r.sold_at) >= periodStart;
-      }).length,
+      allCustomers.filter(
+        (c) => c.status === "venda_realizada" && c.sold_at != null && new Date(c.sold_at) >= periodStart,
+      ).length,
     [allCustomers, periodStart],
   );
 
   const faturamentoPeriod = useMemo(() => {
     if (!isGerente) return 0;
     return allCustomers
-      .filter((c) => {
-        const r = c as Record<string, string | null>;
-        return c.status === "venda_realizada" && r.sold_at != null && new Date(r.sold_at) >= periodStart;
-      })
-      .reduce((sum, c) => sum + ((c as Record<string, number>).sale_value ?? 0), 0);
+      .filter((c) => c.status === "venda_realizada" && c.sold_at != null && new Date(c.sold_at) >= periodStart)
+      .reduce((sum, c) => sum + (c.sale_value ?? 0), 0);
   }, [isGerente, allCustomers, periodStart]);
 
   const ticketMedio = useMemo(() => {
     if (!isGerente) return 0;
-    const comValor = allCustomers.filter((c) => {
-      const r = c as Record<string, number | null>;
-      return c.status === "venda_realizada" && (r.sale_value ?? 0) > 0;
-    });
+    const comValor = allCustomers.filter(
+      (c) => c.status === "venda_realizada" && (c.sale_value ?? 0) > 0,
+    );
     if (comValor.length === 0) return 0;
-    const total = comValor.reduce((sum, c) => sum + ((c as Record<string, number>).sale_value ?? 0), 0);
+    const total = comValor.reduce((sum, c) => sum + (c.sale_value ?? 0), 0);
     return total / comValor.length;
   }, [isGerente, allCustomers]);
 
@@ -250,7 +243,7 @@ function Dashboard() {
     return teamData.profiles
       .filter((p) => p.perfil !== "super_admin")
       .map((p) => {
-        const mine = allCustomers.filter((c) => (c as Record<string, string>).responsavel_id === p.id);
+        const mine = allCustomers.filter((c) => c.responsavel_id === p.id);
         const leads    = mine.filter((c) => !["venda_realizada", "perdido"].includes(c.status)).length;
         const vendas   = mine.filter((c) => c.status === "venda_realizada").length;
         const atrasados = mine.filter(
@@ -261,8 +254,8 @@ function Dashboard() {
         ).length;
         const faturamento = mine
           .filter((c) => c.status === "venda_realizada")
-          .reduce((sum, c) => sum + ((c as Record<string, number>).sale_value ?? 0), 0);
-        return { id: p.id, nome: p.nome as string, leads, vendas, atrasados, faturamento };
+          .reduce((sum, c) => sum + (c.sale_value ?? 0), 0);
+        return { id: p.id, nome: p.nome ?? "", leads, vendas, atrasados, faturamento };
       })
       .filter((v) => v.leads > 0 || v.vendas > 0)
       .sort((a, b) => b.faturamento - a.faturamento || b.vendas - a.vendas || b.leads - a.leads);
@@ -277,15 +270,13 @@ function Dashboard() {
     }
     return (teamData.profiles ?? [])
       .filter((p) => p.perfil !== "super_admin")
-      .map((p) => ({ nome: p.nome as string, count: actMap.get(p.id) ?? 0 }))
+      .map((p) => ({ nome: p.nome ?? "", count: actMap.get(p.id) ?? 0 }))
       .sort((a, b) => b.count - a.count);
   }, [isGerente, teamData]);
 
   const wappsHoje = useMemo(() => {
     if (!isGerente || !teamData) return 0;
-    return teamData.activity.filter(
-      (i) => (i as Record<string, string>).type === "whatsapp",
-    ).length;
+    return teamData.activity.filter((i) => i.type === "whatsapp").length;
   }, [isGerente, teamData]);
 
   const upcoming = appts.slice(0, 5);

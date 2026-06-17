@@ -122,9 +122,9 @@ function ClienteDetalhe() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{c.name as string}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            {c.phone && <span className="inline-flex items-center gap-1"><Phone className="size-3.5" />{c.phone as string}</span>}
-            {c.email && <span className="inline-flex items-center gap-1"><Mail className="size-3.5" />{c.email as string}</span>}
-            {c.city  && <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" />{c.city as string}</span>}
+            {!!c.phone && <span className="inline-flex items-center gap-1"><Phone className="size-3.5" />{c.phone as string}</span>}
+            {!!c.email && <span className="inline-flex items-center gap-1"><Mail className="size-3.5" />{c.email as string}</span>}
+            {!!c.city  && <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" />{c.city as string}</span>}
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase">
               {sourceLabel(c.source as string)}
             </span>
@@ -335,7 +335,7 @@ function ClienteDetalhe() {
               <Row k="Origem"      v={sourceLabel(c.source as string)} />
               <Row k="Status atual" v={statusLabel(c.status as string)} />
             </dl>
-            {c.notes && (
+            {!!c.notes && (
               <p className="mt-3 whitespace-pre-wrap rounded-md bg-muted p-2 text-xs">
                 {c.notes as string}
               </p>
@@ -364,7 +364,7 @@ function ClienteDetalhe() {
                   className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
                 />
               </label>
-              {c.sold_at && (
+              {!!c.sold_at && (
                 <p className="mt-2 text-[10px] text-muted-foreground">
                   Fechada em{" "}
                   {new Date(c.sold_at as string).toLocaleString("pt-BR", {
