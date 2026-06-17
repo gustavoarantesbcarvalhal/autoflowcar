@@ -1,10 +1,11 @@
 import { createLazyFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUSES, type StatusId, sourceLabel, formatPriceBRL, whatsappLink, daysSince } from "@/lib/crm";
+import { STATUSES, type StatusId, sourceLabel, formatPriceBRL, daysSince } from "@/lib/crm";
+import { WaButton } from "@/components/wa-button";
 import { DndContext, useDraggable, useDroppable, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, MessageCircle, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -172,14 +173,15 @@ function Card({ c, accent }: { c: Customer; accent: string }) {
       )}
       <div className="mt-3 flex items-center justify-between">
         <span className="font-mono text-[11px] font-semibold">{formatPriceBRL(c.price_max ?? c.price_min)}</span>
-        <a
-          onClick={(e) => e.stopPropagation()}
-          href={whatsappLink(c.whatsapp ?? c.phone, `Olá ${c.name}!`)}
-          target="_blank" rel="noreferrer"
-          className="rounded-full bg-whatsapp/10 px-2 py-1 text-[10px] font-bold text-whatsapp hover:bg-whatsapp hover:text-white transition-colors"
-        >
-          WhatsApp
-        </a>
+        <WaButton
+          customerId={c.id}
+          nome={c.name}
+          numero={c.whatsapp ?? c.phone}
+          marca={c.interest_brand}
+          modelo={c.interest_model}
+          status={c.status}
+          size="sm"
+        />
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUSES, FOLLOW_UP_TYPES, formatPriceBRL, whatsappLink, sourceLabel, statusLabel } from "@/lib/crm";
-import { ArrowLeft, MessageCircle, Phone, Mail, MapPin, Trash2, CheckCircle2, User } from "lucide-react";
+import { STATUSES, FOLLOW_UP_TYPES, formatPriceBRL, sourceLabel, statusLabel } from "@/lib/crm";
+import { WaButton } from "@/components/wa-button";
+import { ArrowLeft, Phone, Mail, MapPin, Trash2, CheckCircle2, User, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -130,13 +131,14 @@ function ClienteDetalhe() {
           </div>
         </div>
         <div className="flex gap-2">
-          <a
-            href={whatsappLink((c.whatsapp ?? c.phone) as string, `Olá ${c.name}!`)}
-            target="_blank" rel="noreferrer"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-whatsapp px-3 text-sm font-bold text-white hover:opacity-90"
-          >
-            <MessageCircle className="size-4" /> WhatsApp
-          </a>
+          <WaButton
+            customerId={id}
+            nome={c.name as string}
+            numero={(c.whatsapp ?? c.phone) as string | null}
+            marca={c.interest_brand as string | null}
+            modelo={c.interest_model as string | null}
+            status={c.status as string}
+          />
           <button
             onClick={() => { if (confirm("Excluir cliente?")) remove.mutate(); }}
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-destructive hover:bg-destructive/10"
@@ -226,6 +228,31 @@ function ClienteDetalhe() {
         </div>
 
         <aside className="space-y-4">
+          {/* Contadores de contato */}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest">Histórico de contatos</h3>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-lg font-bold">{data.interactions.length}</p>
+                <p className="text-[10px] text-muted-foreground">Total</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-whatsapp">
+                  {data.interactions.filter((i) => i.type === "whatsapp").length}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  <MessageCircle className="mr-0.5 inline size-2.5" />WhatsApps
+                </p>
+              </div>
+              <div>
+                <p className="text-lg font-bold">
+                  {data.interactions.filter((i) => i.type === "ligacao").length}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Ligações</p>
+              </div>
+            </div>
+          </div>
+
           {/* Status */}
           <div className="rounded-xl border border-border bg-card p-4">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-widest">Status do negócio</h3>

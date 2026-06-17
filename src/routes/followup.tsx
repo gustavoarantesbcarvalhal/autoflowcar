@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FOLLOW_UP_TYPES, followUpTypeLabel, whatsappLink, daysSince, statusLabel } from "@/lib/crm";
+import { FOLLOW_UP_TYPES, followUpTypeLabel, daysSince, statusLabel } from "@/lib/crm";
+import { WaButton } from "@/components/wa-button";
 import {
-  MessageCircle, CheckCircle2, Clock, RotateCcw,
+  CheckCircle2, Clock, RotateCcw,
   ChevronDown, ChevronUp, AlertCircle, CalendarClock, Inbox, User,
 } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -399,14 +400,15 @@ function LeadCard({ lead, panel, setPanel, onConcluir, onReagendar, isPending }:
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-1.5">
-          <a
-            href={whatsappLink(lead.whatsapp ?? lead.phone, `Olá ${lead.name}!`)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-8 items-center gap-1 rounded-md bg-whatsapp/10 px-2 text-xs font-bold text-whatsapp transition-colors hover:bg-whatsapp hover:text-white"
-          >
-            <MessageCircle className="size-3" /> WhatsApp
-          </a>
+          <WaButton
+            customerId={lead.id}
+            nome={lead.name}
+            numero={lead.whatsapp ?? lead.phone}
+            marca={lead.interest_brand}
+            modelo={lead.interest_model}
+            status={lead.status}
+            size="sm"
+          />
           <button
             onClick={() => togglePanel("concluir")}
             className={cn(

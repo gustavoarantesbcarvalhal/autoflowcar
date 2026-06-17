@@ -83,3 +83,70 @@ export function daysSince(iso: string | null | undefined) {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
+
+// ---------------------------------------------------------------------------
+// WhatsApp templates
+// ---------------------------------------------------------------------------
+
+export type WaTemplateId =
+  | "primeiro_contato"
+  | "retorno"
+  | "agendamento"
+  | "test_drive"
+  | "pos_venda";
+
+export const WA_TEMPLATES: Array<{
+  id: WaTemplateId;
+  label: string;
+  suggestFor: string[];
+  text: string;
+}> = [
+  {
+    id: "primeiro_contato",
+    label: "Primeiro contato",
+    suggestFor: ["novo_lead", "primeiro_contato"],
+    text: "Olá {nome_cliente}! Vi que você tem interesse em {nome_veiculo}. Sou {nome_vendedor} de {nome_loja} e estou aqui para te ajudar. Posso te passar mais informações? 😊",
+  },
+  {
+    id: "retorno",
+    label: "Retorno",
+    suggestFor: ["interessado", "em_negociacao", "proposta_enviada"],
+    text: "Olá {nome_cliente}! Tudo bem? Passando para dar um retorno sobre o {nome_veiculo} que conversamos. Ainda tem interesse? Posso ajudar com alguma dúvida? 🙂",
+  },
+  {
+    id: "agendamento",
+    label: "Agendamento",
+    suggestFor: ["primeiro_contato", "interessado"],
+    text: "Olá {nome_cliente}! Gostaria de agendar uma visita para você conhecer o {nome_veiculo} pessoalmente aqui em {nome_loja}. Qual horário fica melhor para você esta semana?",
+  },
+  {
+    id: "test_drive",
+    label: "Test Drive",
+    suggestFor: ["test_drive", "em_negociacao"],
+    text: "Olá {nome_cliente}! Que tal vir fazer um test-drive do {nome_veiculo} aqui em {nome_loja}? É a melhor forma de sentir o carro! 🚗 Quando você pode vir?",
+  },
+  {
+    id: "pos_venda",
+    label: "Pós-venda",
+    suggestFor: ["venda_realizada"],
+    text: "Olá {nome_cliente}! Como está sendo a experiência com o seu novo veículo? Sou {nome_vendedor} de {nome_loja} e fico à disposição para qualquer dúvida! 😊",
+  },
+];
+
+export function suggestWaTemplate(status: string): WaTemplateId {
+  for (const t of WA_TEMPLATES) {
+    if (t.suggestFor.includes(status)) return t.id;
+  }
+  return "retorno";
+}
+
+export function interpolateWaTemplate(
+  text: string,
+  vars: { nome_cliente: string; nome_veiculo: string; nome_vendedor: string; nome_loja: string },
+): string {
+  return text
+    .replace(/\{nome_cliente\}/g, vars.nome_cliente)
+    .replace(/\{nome_veiculo\}/g, vars.nome_veiculo)
+    .replace(/\{nome_vendedor\}/g, vars.nome_vendedor)
+    .replace(/\{nome_loja\}/g, vars.nome_loja);
+}

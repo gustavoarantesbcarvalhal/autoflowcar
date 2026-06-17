@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUSES, formatPriceBRL, whatsappLink, daysSince } from "@/lib/crm";
+import { STATUSES, formatPriceBRL, daysSince } from "@/lib/crm";
+import { WaButton } from "@/components/wa-button";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Plus, MessageCircle, ArrowRight, AlertTriangle, Clock,
+  Plus, ArrowRight, AlertTriangle, Clock,
   TrendingUp, Users, Activity,
 } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -70,7 +71,7 @@ async function fetchTeamData() {
     supabase.from("user_profiles").select("id,nome,perfil").eq("ativo", true),
     supabase
       .from("interactions")
-      .select("id,user_id")
+      .select("id,user_id,type")
       .gte("created_at", todayStart.toISOString()),
   ]);
   return { profiles: profiles.data ?? [], activity: activity.data ?? [] };
@@ -280,6 +281,13 @@ function Dashboard() {
       .sort((a, b) => b.count - a.count);
   }, [isGerente, teamData]);
 
+  const wappsHoje = useMemo(() => {
+    if (!isGerente || !teamData) return 0;
+    return teamData.activity.filter(
+      (i) => (i as Record<string, string>).type === "whatsapp",
+    ).length;
+  }, [isGerente, teamData]);
+
   const upcoming = appts.slice(0, 5);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -342,7 +350,7 @@ function Dashboard() {
 
       {/* Financial KPIs — gerente / admin only */}
       {isGerente && (
-        <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm">
+        <div className="mb-8 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm">
           <Kpi
             label={`Faturamento — ${PERIOD_LABEL[period]}`}
             value={isLoading ? "…" : faturamentoPeriod > 0 ? formatPriceBRL(faturamentoPeriod) : "R$ 0"}
@@ -352,6 +360,11 @@ function Dashboard() {
             label="Ticket Médio (com valor)"
             value={isLoading ? "…" : ticketMedio > 0 ? formatPriceBRL(ticketMedio) : "—"}
             hint="Média das vendas com valor informado"
+          />
+          <Kpi
+            label="WhatsApps hoje"
+            value={isLoading ? "…" : wappsHoje}
+            hint="Enviados pela equipe hoje"
           />
         </div>
       )}
@@ -389,13 +402,15 @@ function Dashboard() {
                         {c.interest_brand} {c.interest_model} · {formatPriceBRL(c.price_max)} · {daysSince(c.last_contact_at)}d sem contato
                       </p>
                     </Link>
-                    <a
-                      href={whatsappLink(c.whatsapp ?? c.phone, `Olá ${c.name}, tudo bem?`)}
-                      target="_blank" rel="noreferrer"
-                      className="inline-flex h-8 items-center gap-1 rounded-md bg-whatsapp px-2 text-xs font-bold text-white hover:opacity-90"
-                    >
-                      <MessageCircle className="size-3.5" /> Zap
-                    </a>
+                    <WaButton
+                      customerId={c.id}
+                      nome={c.name}
+                      numero={c.whatsapp ?? c.phone}
+                      marca={c.interest_brand}
+                      modelo={c.interest_model}
+                      status={c.status}
+                      size="sm"
+                    />
                   </li>
                 ))}
               </ul>

@@ -4,7 +4,6 @@ import {
   Sun,
   Search,
   Plus,
-  MessageCircle,
   LogOut,
   ChevronDown,
   User,
@@ -162,16 +161,6 @@ export function TopNav() {
         >
           {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
-        <a
-          href="https://wa.me/"
-          target="_blank"
-          rel="noreferrer"
-          className="grid size-9 place-items-center rounded-md text-whatsapp transition-colors hover:bg-muted"
-          aria-label="WhatsApp"
-        >
-          <MessageCircle className="size-4" />
-        </a>
-
         {/* User menu */}
         {nome && (
           <div className="relative" ref={menuRef}>
