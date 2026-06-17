@@ -13,21 +13,59 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "./theme-provider";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-function NavLink({ to, label, pathname }: { to: string; label: string; pathname: string }) {
+function useFollowUpBadge() {
+  const { data = 0 } = useQuery({
+    queryKey: ["followup-badge"],
+    queryFn: async () => {
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      const { count, error } = await supabase
+        .from("customers")
+        .select("*", { count: "exact", head: true })
+        .not("status", "in", "(venda_realizada,perdido)")
+        .not("next_return_at", "is", null)
+        .lte("next_return_at", todayEnd.toISOString());
+      if (error) return 0;
+      return count ?? 0;
+    },
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+  });
+  return data;
+}
+
+function NavLink({
+  to,
+  label,
+  pathname,
+  badge,
+}: {
+  to: string;
+  label: string;
+  pathname: string;
+  badge?: number;
+}) {
   const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
   return (
     <Link
       to={to as never}
       className={cn(
-        "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        "relative rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
         active
           ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {label}
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-bold text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -41,6 +79,7 @@ export function TopNav() {
   const [loggingOut, setLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const followUpBadge = useFollowUpBadge();
 
   const podeVerExportar = perfil !== "vendedor" && perfil !== null;
   const podeVerUsuarios = perfil === "admin_loja" || perfil === "gerente";
@@ -73,9 +112,9 @@ export function TopNav() {
   }
 
   const perfilLabel: Record<string, string> = {
-    admin_loja: "Admin",
-    gerente: "Gerente",
-    vendedor: "Vendedor",
+    admin_loja:  "Admin",
+    gerente:     "Gerente",
+    vendedor:    "Vendedor",
     super_admin: "Super Admin",
   };
 
@@ -89,13 +128,13 @@ export function TopNav() {
           <span className="text-lg font-bold tracking-tight">AUTOFLOW</span>
         </Link>
         <div className="hidden items-center gap-1 md:flex">
-          <NavLink to="/" label="Dashboard" pathname={pathname} />
-          <NavLink to="/clientes" label="Clientes" pathname={pathname} />
-          <NavLink to="/followup" label="Follow-up" pathname={pathname} />
-          <NavLink to="/estoque" label="Estoque" pathname={pathname} />
-          <NavLink to="/agenda" label="Agenda" pathname={pathname} />
-          {podeVerExportar && <NavLink to="/exportar" label="Exportar" pathname={pathname} />}
-          {podeVerUsuarios && <NavLink to="/usuarios" label="Usuários" pathname={pathname} />}
+          <NavLink to="/"          label="Dashboard" pathname={pathname} />
+          <NavLink to="/clientes"  label="Clientes"  pathname={pathname} />
+          <NavLink to="/followup"  label="Follow-up" pathname={pathname} badge={followUpBadge} />
+          <NavLink to="/estoque"   label="Estoque"   pathname={pathname} />
+          <NavLink to="/agenda"    label="Agenda"    pathname={pathname} />
+          {podeVerExportar && <NavLink to="/exportar" label="Exportar"  pathname={pathname} />}
+          {podeVerUsuarios && <NavLink to="/usuarios" label="Usuários"  pathname={pathname} />}
         </div>
       </div>
 
@@ -121,11 +160,7 @@ export function TopNav() {
           className="grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Alternar tema"
         >
-          {theme === "dark" ? (
-            <Sun className="size-4" />
-          ) : (
-            <Moon className="size-4" />
-          )}
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
         <a
           href="https://wa.me/"

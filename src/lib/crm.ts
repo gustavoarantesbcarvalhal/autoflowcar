@@ -33,6 +33,22 @@ export const APPOINTMENT_TYPES = [
   { id: "test_drive", label: "Test Drive" },
 ] as const;
 
+export const FOLLOW_UP_TYPES = [
+  { id: "ligacao",    label: "Ligação" },
+  { id: "whatsapp",  label: "WhatsApp" },
+  { id: "email",     label: "E-mail" },
+  { id: "visita",    label: "Visita" },
+  { id: "test_drive", label: "Test Drive" },
+  { id: "retorno",   label: "Retorno" },
+] as const;
+
+export type FollowUpTypeId = (typeof FOLLOW_UP_TYPES)[number]["id"];
+
+export function followUpTypeLabel(id: string | null | undefined) {
+  if (!id) return "—";
+  return FOLLOW_UP_TYPES.find((t) => t.id === id)?.label ?? id;
+}
+
 export function statusLabel(id: string) {
   return STATUSES.find((s) => s.id === id)?.label ?? id;
 }
