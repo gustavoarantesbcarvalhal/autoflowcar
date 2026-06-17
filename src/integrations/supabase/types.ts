@@ -21,6 +21,7 @@ export type Database = {
           done: boolean
           id: string
           notes: string | null
+          responsavel_id: string | null
           scheduled_at: string
           tenant_id: string | null
           title: string | null
@@ -33,6 +34,7 @@ export type Database = {
           done?: boolean
           id?: string
           notes?: string | null
+          responsavel_id?: string | null
           scheduled_at: string
           tenant_id?: string | null
           title?: string | null
@@ -45,6 +47,7 @@ export type Database = {
           done?: boolean
           id?: string
           notes?: string | null
+          responsavel_id?: string | null
           scheduled_at?: string
           tenant_id?: string | null
           title?: string | null
@@ -84,17 +87,23 @@ export type Database = {
           interest_brand: string | null
           interest_model: string | null
           interest_year: string | null
+          is_priority: boolean
           last_contact_at: string | null
           lost_reason: string | null
           name: string
+          next_action_notes: string | null
+          next_action_type: string | null
           next_return_at: string | null
           notes: string | null
           phone: string | null
           price_max: number | null
           price_min: number | null
           responsavel_id: string | null
+          sale_value: number | null
+          sold_at: string | null
           source: Database["public"]["Enums"]["lead_source"] | null
           status: Database["public"]["Enums"]["lead_status"]
+          status_changed_at: string | null
           tenant_id: string | null
           updated_at: string
           whatsapp: string | null
@@ -107,17 +116,23 @@ export type Database = {
           interest_brand?: string | null
           interest_model?: string | null
           interest_year?: string | null
+          is_priority?: boolean
           last_contact_at?: string | null
           lost_reason?: string | null
           name: string
+          next_action_notes?: string | null
+          next_action_type?: string | null
           next_return_at?: string | null
           notes?: string | null
           phone?: string | null
           price_max?: number | null
           price_min?: number | null
           responsavel_id?: string | null
+          sale_value?: number | null
+          sold_at?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
+          status_changed_at?: string | null
           tenant_id?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -130,17 +145,23 @@ export type Database = {
           interest_brand?: string | null
           interest_model?: string | null
           interest_year?: string | null
+          is_priority?: boolean
           last_contact_at?: string | null
           lost_reason?: string | null
           name?: string
+          next_action_notes?: string | null
+          next_action_type?: string | null
           next_return_at?: string | null
           notes?: string | null
           phone?: string | null
           price_max?: number | null
           price_min?: number | null
           responsavel_id?: string | null
+          sale_value?: number | null
+          sold_at?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
           status?: Database["public"]["Enums"]["lead_status"]
+          status_changed_at?: string | null
           tenant_id?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -163,6 +184,7 @@ export type Database = {
           id: string
           tenant_id: string | null
           type: Database["public"]["Enums"]["interaction_type"]
+          user_id: string | null
           vehicle_id: string | null
         }
         Insert: {
@@ -172,6 +194,7 @@ export type Database = {
           id?: string
           tenant_id?: string | null
           type?: Database["public"]["Enums"]["interaction_type"]
+          user_id?: string | null
           vehicle_id?: string | null
         }
         Update: {
@@ -181,6 +204,7 @@ export type Database = {
           id?: string
           tenant_id?: string | null
           type?: Database["public"]["Enums"]["interaction_type"]
+          user_id?: string | null
           vehicle_id?: string | null
         }
         Relationships: [
@@ -397,6 +421,7 @@ export type Database = {
         | "proposta"
         | "veiculo_apresentado"
         | "perda"
+        | "retorno"
       lead_source:
         | "instagram"
         | "facebook"
@@ -556,6 +581,7 @@ export const Constants = {
         "proposta",
         "veiculo_apresentado",
         "perda",
+        "retorno",
       ],
       lead_source: [
         "instagram",

@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FOLLOW_UP_TYPES, followUpTypeLabel, daysSince, statusLabel } from "@/lib/crm";
+import { useAuth } from "@/hooks/useAuth";
+import { FOLLOW_UP_TYPES, APPOINTMENT_TYPES, followUpTypeLabel, daysSince, statusLabel } from "@/lib/crm";
 import { WaButton } from "@/components/wa-button";
 import {
   CheckCircle2, Clock, RotateCcw,
   ChevronDown, ChevronUp, AlertCircle, CalendarClock, Inbox, User,
+  Star, AlertTriangle, Calendar, Filter,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -32,6 +34,22 @@ type FollowUpLead = {
   last_contact_at: string | null;
   interest_brand: string | null;
   interest_model: string | null;
+  responsavel_id: string | null;
+  responsavel_nome: string | null;
+  is_priority: boolean;
+  status_changed_at: string | null;
+  created_at: string;
+  interaction_count: number;
+};
+
+type TodayAppt = {
+  id: string;
+  type: string;
+  scheduled_at: string;
+  title: string | null;
+  done: boolean;
+  customer_id: string | null;
+  customer_name: string | null;
 };
 
 type HistoricoItem = {
@@ -58,6 +76,7 @@ type SharedProps = {
   onConcluir: (args: ConcluirArgs) => void;
   onReagendar: (args: ReagendarArgs) => void;
   isPending: boolean;
+  isGerente: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -67,13 +86,90 @@ type SharedProps = {
 async function fetchFollowUps(): Promise<FollowUpLead[]> {
   const { data, error } = await supabase
     .from("customers")
-    .select(
-      "id,name,phone,whatsapp,status,next_return_at,next_action_type,next_action_notes,last_contact_at,interest_brand,interest_model",
-    )
+    .select("id,name,phone,whatsapp,status,next_return_at,next_action_type,next_action_notes,last_contact_at,interest_brand,interest_model,responsavel_id,is_priority,status_changed_at,created_at")
     .not("status", "in", "(venda_realizada,perdido)")
+    .order("is_priority", { ascending: false })
     .order("next_return_at", { ascending: true, nullsFirst: false });
   if (error) throw error;
-  return (data ?? []) as FollowUpLead[];
+
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  // Enrich: responsável names
+  const responsavelIds = [
+    ...new Set(rows.map((c) => c.responsavel_id).filter((id): id is string => id !== null)),
+  ];
+  const profileMap = new Map<string, string>();
+  if (responsavelIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("id,nome")
+      .in("id", responsavelIds);
+    for (const p of profiles ?? []) profileMap.set(p.id, p.nome);
+  }
+
+  // Enrich: interaction counts
+  const customerIds = rows.map((c) => c.id);
+  const countMap = new Map<string, number>();
+  if (customerIds.length > 0) {
+    const { data: ints } = await supabase
+      .from("interactions")
+      .select("customer_id")
+      .in("customer_id", customerIds);
+    for (const i of ints ?? []) {
+      countMap.set(i.customer_id, (countMap.get(i.customer_id) ?? 0) + 1);
+    }
+  }
+
+  return rows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    whatsapp: c.whatsapp,
+    status: c.status,
+    next_return_at: c.next_return_at,
+    next_action_type: c.next_action_type,
+    next_action_notes: c.next_action_notes,
+    last_contact_at: c.last_contact_at,
+    interest_brand: c.interest_brand,
+    interest_model: c.interest_model,
+    responsavel_id: c.responsavel_id,
+    responsavel_nome: c.responsavel_id ? (profileMap.get(c.responsavel_id) ?? null) : null,
+    is_priority: c.is_priority,
+    status_changed_at: c.status_changed_at,
+    created_at: c.created_at,
+    interaction_count: countMap.get(c.id) ?? 0,
+  }));
+}
+
+async function fetchTodayAppts(): Promise<TodayAppt[]> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart.getTime() + 86_400_000);
+
+  const { data } = await supabase
+    .from("appointments")
+    .select("id,type,scheduled_at,title,done,customer_id")
+    .gte("scheduled_at", todayStart.toISOString())
+    .lt("scheduled_at", todayEnd.toISOString())
+    .order("scheduled_at", { ascending: true });
+
+  if (!data || data.length === 0) return [];
+
+  const cids = [...new Set(data.map((a) => a.customer_id).filter(Boolean) as string[])];
+  const nameMap = new Map<string, string>();
+  if (cids.length > 0) {
+    const { data: customers } = await supabase
+      .from("customers")
+      .select("id,name")
+      .in("id", cids);
+    for (const c of customers ?? []) nameMap.set(c.id, c.name);
+  }
+
+  return data.map((a) => ({
+    ...a,
+    customer_name: a.customer_id ? (nameMap.get(a.customer_id) ?? null) : null,
+  }));
 }
 
 async function fetchHistorico(customerId: string): Promise<HistoricoItem[]> {
@@ -109,30 +205,45 @@ async function fetchHistorico(customerId: string): Promise<HistoricoItem[]> {
 // Lead grouping
 // ---------------------------------------------------------------------------
 
-function groupLeads(leads: FollowUpLead[]) {
-  const now = new Date();
+const STUCK_DAYS = 14;
+
+function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
+  const filtered = filterVendedorId
+    ? leads.filter((l) => l.responsavel_id === filterVendedorId)
+    : leads;
+
+  const now        = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const todayEnd   = todayStart + 86_400_000;
   const weekEnd    = todayStart + 8 * 86_400_000;
+  const stuck14    = todayStart - STUCK_DAYS * 86_400_000;
 
   const vencidos:  FollowUpLead[] = [];
   const hoje:      FollowUpLead[] = [];
   const proximos7: FollowUpLead[] = [];
   const semData:   FollowUpLead[] = [];
+  const parados:   FollowUpLead[] = [];
 
-  for (const lead of leads) {
-    if (!lead.next_return_at) {
-      const d = daysSince(lead.last_contact_at);
-      // null = nunca contatado; >= 7 = inativo há mais de uma semana
-      if (d === null || d >= 7) semData.push(lead);
-    } else {
+  for (const lead of filtered) {
+    if (lead.next_return_at) {
       const t = new Date(lead.next_return_at).getTime();
       if      (t < todayStart) vencidos.push(lead);
       else if (t < todayEnd)   hoje.push(lead);
       else if (t < weekEnd)    proximos7.push(lead);
+      // next_return_at > 7 dias: ainda não urgente
+    } else {
+      const refDate = lead.status_changed_at ?? lead.created_at;
+      const refTime = new Date(refDate).getTime();
+      if (refTime < stuck14) {
+        parados.push(lead);
+      } else {
+        const d = daysSince(lead.last_contact_at);
+        if (d === null || d >= 7) semData.push(lead);
+      }
     }
   }
-  return { vencidos, hoje, proximos7, semData };
+
+  return { vencidos, hoje, proximos7, semData, parados };
 }
 
 // ---------------------------------------------------------------------------
@@ -140,15 +251,42 @@ function groupLeads(leads: FollowUpLead[]) {
 // ---------------------------------------------------------------------------
 
 function FollowupPage() {
+  const { perfil } = useAuth();
+  const isGerente = perfil === "gerente" || perfil === "admin_loja" || perfil === "super_admin";
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["followup"], queryFn: fetchFollowUps });
-  const [panel, setPanel] = useState<Panel>({ kind: "none" });
 
-  const { vencidos, hoje, proximos7, semData } = useMemo(
-    () => groupLeads(data ?? []),
-    [data],
+  const { data, isLoading } = useQuery({ queryKey: ["followup"], queryFn: fetchFollowUps });
+
+  const { data: todayAppts = [] } = useQuery({
+    queryKey: ["agenda-today"],
+    queryFn: fetchTodayAppts,
+    staleTime: 60_000,
+  });
+
+  const [panel, setPanel] = useState<Panel>({ kind: "none" });
+  const [filterVendedor, setFilterVendedor] = useState("");
+
+  const vendedorOptions = useMemo(() => {
+    if (!isGerente) return [];
+    const seen = new Map<string, string>();
+    for (const l of data ?? []) {
+      if (l.responsavel_id && l.responsavel_nome) {
+        seen.set(l.responsavel_id, l.responsavel_nome);
+      }
+    }
+    return [...seen.entries()]
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [isGerente, data]);
+
+  const groups = useMemo(
+    () => groupLeads(data ?? [], filterVendedor || undefined),
+    [data, filterVendedor],
   );
-  const urgentes = vencidos.length + hoje.length;
+
+  const { vencidos, hoje, proximos7, semData, parados } = groups;
+  const urgentes  = vencidos.length + hoje.length;
+  const totalFU   = urgentes + proximos7.length + semData.length + parados.length;
 
   const concluir = useMutation({
     mutationFn: async ({ leadId, tipo, nota }: ConcluirArgs) => {
@@ -161,17 +299,18 @@ function FollowupPage() {
       const { error: ce } = await supabase
         .from("customers")
         .update({
-          last_contact_at: new Date().toISOString(),
+          last_contact_at:   new Date().toISOString(),
           next_return_at:    null,
           next_action_type:  null,
           next_action_notes: null,
-        } as never)
+        })
         .eq("id", leadId);
       if (ce) throw ce;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["followup"] });
       qc.invalidateQueries({ queryKey: ["followup-badge"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
       setPanel({ kind: "none" });
       toast.success("Contato registrado e follow-up concluído");
     },
@@ -186,7 +325,7 @@ function FollowupPage() {
           next_return_at:    new Date(novaData).toISOString(),
           next_action_type:  tipo,
           next_action_notes: nota || null,
-        } as never)
+        })
         .eq("id", leadId);
       if (error) throw error;
     },
@@ -204,17 +343,36 @@ function FollowupPage() {
     onConcluir:  (args) => concluir.mutate(args),
     onReagendar: (args) => reagendar.mutate(args),
     isPending: concluir.isPending || reagendar.isPending,
+    isGerente,
   };
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Central de Follow-up</h1>
-        <p className="text-sm text-muted-foreground">
-          {isLoading
-            ? "Carregando…"
-            : `${urgentes} ${urgentes === 1 ? "ação urgente" : "ações urgentes"} · ${proximos7.length} nos próximos 7 dias`}
-        </p>
+      {/* Header */}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Central de Follow-up</h1>
+          <p className="text-sm text-muted-foreground">
+            {isLoading
+              ? "Carregando…"
+              : `${urgentes} ${urgentes === 1 ? "ação urgente" : "ações urgentes"} · ${parados.length} parados · ${proximos7.length} nos próximos 7 dias`}
+          </p>
+        </div>
+        {isGerente && vendedorOptions.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Filter className="size-3.5 text-muted-foreground" />
+            <select
+              value={filterVendedor}
+              onChange={(e) => setFilterVendedor(e.target.value)}
+              className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+            >
+              <option value="">Toda a equipe</option>
+              {vendedorOptions.map((v) => (
+                <option key={v.id} value={v.id}>{v.nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -223,8 +381,83 @@ function FollowupPage() {
             <div key={i} className="h-24 animate-pulse rounded-xl border border-border bg-card" />
           ))}
         </div>
+      ) : totalFU === 0 && todayAppts.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border py-16 text-center">
+          <CheckCircle2 className="mx-auto mb-3 size-10 text-emerald-500" />
+          <p className="text-sm font-medium">Nenhum lead para acompanhar</p>
+          <p className="mt-1 text-xs text-muted-foreground">Todos os leads ativos estão em dia.</p>
+        </div>
       ) : (
         <div className="space-y-8">
+
+          {/* Mini-agenda do dia */}
+          {todayAppts.length > 0 && (
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Calendar className="size-4 text-primary" />
+                <h2 className="text-xs font-bold uppercase tracking-widest text-primary">
+                  Agenda de hoje
+                </h2>
+                <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold">
+                  {todayAppts.length}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {todayAppts.map((a) => {
+                  const dt = new Date(a.scheduled_at);
+                  const isOverdue = !a.done && dt.getTime() < Date.now();
+                  return (
+                    <div
+                      key={a.id}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg border bg-card px-3 py-2",
+                        a.done
+                          ? "border-border opacity-50"
+                          : isOverdue
+                            ? "border-destructive/50"
+                            : "border-border",
+                      )}
+                    >
+                      <div className={cn(
+                        "h-8 w-1 shrink-0 rounded-full",
+                        a.done ? "bg-muted" : isOverdue ? "bg-destructive" : "bg-primary",
+                      )} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {a.title || APPOINTMENT_TYPES.find((t) => t.id === a.type)?.label || a.type}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span className="font-mono">
+                            {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {a.customer_name && (
+                            <>
+                              <span>·</span>
+                              {a.customer_id ? (
+                                <Link
+                                  to="/clientes/$id"
+                                  params={{ id: a.customer_id }}
+                                  className="text-primary hover:underline"
+                                >
+                                  {a.customer_name}
+                                </Link>
+                              ) : (
+                                <span>{a.customer_name}</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {a.done && (
+                        <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           <Section
             title="Vencidos" tone="danger" icon={AlertCircle}
             leads={vencidos} emptyText="Nenhum follow-up atrasado."
@@ -238,6 +471,13 @@ function FollowupPage() {
           <Section
             title="Próximos 7 dias" tone="info" icon={CalendarClock}
             leads={proximos7} emptyText="Agenda limpa para a semana."
+            {...shared}
+          />
+          <Section
+            title="Parados em etapa" tone="stuck" icon={AlertTriangle}
+            leads={parados}
+            emptyText="Nenhum lead parado em etapa."
+            subtitle={`sem movimentação há ${STUCK_DAYS}+ dias`}
             {...shared}
           />
           <Section
@@ -261,12 +501,13 @@ const TONE_CLS = {
   danger:  "text-destructive",
   warning: "text-amber-500 dark:text-amber-400",
   info:    "text-primary",
+  stuck:   "text-orange-500 dark:text-orange-400",
   muted:   "text-muted-foreground",
 } as const;
 
 function Section({
   title, tone, icon: Icon, leads, emptyText, subtitle,
-  panel, setPanel, onConcluir, onReagendar, isPending,
+  panel, setPanel, onConcluir, onReagendar, isPending, isGerente,
 }: {
   title: string;
   tone: keyof typeof TONE_CLS;
@@ -305,6 +546,7 @@ function Section({
               onConcluir={onConcluir}
               onReagendar={onReagendar}
               isPending={isPending}
+              isGerente={isGerente}
             />
           ))}
         </div>
@@ -317,9 +559,11 @@ function Section({
 // LeadCard
 // ---------------------------------------------------------------------------
 
-function LeadCard({ lead, panel, setPanel, onConcluir, onReagendar, isPending }: {
-  lead: FollowUpLead;
-} & SharedProps) {
+function LeadCard({
+  lead, panel, setPanel, onConcluir, onReagendar, isPending, isGerente,
+}: { lead: FollowUpLead } & SharedProps) {
+  const qc = useQueryClient();
+
   const myKind =
     panel.kind !== "none" && (panel as { leadId: string }).leadId === lead.id
       ? panel.kind
@@ -329,17 +573,52 @@ function LeadCard({ lead, panel, setPanel, onConcluir, onReagendar, isPending }:
     setPanel(myKind === kind ? { kind: "none" } : ({ kind, leadId: lead.id } as Panel));
   }
 
+  const togglePriority = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("customers")
+        .update({ is_priority: !lead.is_priority })
+        .eq("id", lead.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["followup"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const idle = daysSince(lead.last_contact_at);
-  const nextDate = lead.next_return_at ? new Date(lead.next_return_at) : null;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const isOverdue = nextDate && nextDate < todayStart;
+  const nextDate   = lead.next_return_at ? new Date(lead.next_return_at) : null;
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const isOverdue  = nextDate && nextDate < todayStart;
+
+  const stuckDays = lead.status_changed_at
+    ? daysSince(lead.status_changed_at)
+    : daysSince(lead.created_at);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
+    <div className={cn(
+      "overflow-hidden rounded-xl border bg-card",
+      lead.is_priority
+        ? "border-amber-400/60 dark:border-amber-500/40"
+        : "border-border",
+    )}>
       <div className="flex flex-wrap items-start gap-3 p-4">
         <div className="min-w-0 flex-1">
+
+          {/* Name row */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => togglePriority.mutate()}
+              disabled={togglePriority.isPending}
+              title={lead.is_priority ? "Remover prioridade" : "Marcar como prioritário"}
+              className="shrink-0 transition-transform hover:scale-110 disabled:opacity-50"
+            >
+              <Star className={cn(
+                "size-3.5",
+                lead.is_priority
+                  ? "fill-amber-400 text-amber-400"
+                  : "text-muted-foreground/40 hover:text-amber-400",
+              )} />
+            </button>
             <Link
               to="/clientes/$id"
               params={{ id: lead.id }}
@@ -350,42 +629,47 @@ function LeadCard({ lead, panel, setPanel, onConcluir, onReagendar, isPending }:
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase">
               {statusLabel(lead.status)}
             </span>
+            {lead.interaction_count > 0 && (
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
+                {lead.interaction_count} contato{lead.interaction_count !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
 
+          {/* Vehicle + contact info */}
           <p className="mt-0.5 text-xs text-muted-foreground">
             {[lead.interest_brand, lead.interest_model].filter(Boolean).join(" ") || "Interesse não definido"}
-            {idle !== null && (
+            {idle !== null ? (
               <>
                 {" · "}
                 <span className={idle >= 7 ? "font-medium text-destructive" : ""}>
                   {idle}d sem contato
                 </span>
               </>
+            ) : (
+              <span className="font-medium text-destructive"> · nunca contatado</span>
             )}
           </p>
 
+          {/* Responsável (gerente only) */}
+          {isGerente && lead.responsavel_nome && (
+            <p className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <User className="size-2.5" /> {lead.responsavel_nome}
+            </p>
+          )}
+
+          {/* Next action */}
           {(lead.next_action_type || nextDate) && (
             <div className="mt-1 flex items-center gap-1.5">
-              <CalendarClock
-                className={cn("size-3", isOverdue ? "text-destructive" : "text-muted-foreground")}
-              />
-              <span
-                className={cn(
-                  "text-xs",
-                  isOverdue ? "font-medium text-destructive" : "text-muted-foreground",
-                )}
-              >
-                {lead.next_action_type
-                  ? followUpTypeLabel(lead.next_action_type)
-                  : "Retorno"}
+              <CalendarClock className={cn("size-3", isOverdue ? "text-destructive" : "text-muted-foreground")} />
+              <span className={cn("text-xs", isOverdue ? "font-medium text-destructive" : "text-muted-foreground")}>
+                {lead.next_action_type ? followUpTypeLabel(lead.next_action_type) : "Retorno"}
                 {nextDate && (
                   <>
                     {" em "}
                     {nextDate.toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
+                      day: "2-digit", month: "2-digit",
+                      hour: "2-digit", minute: "2-digit",
                     })}
                   </>
                 )}
@@ -397,8 +681,16 @@ function LeadCard({ lead, panel, setPanel, onConcluir, onReagendar, isPending }:
               )}
             </div>
           )}
+
+          {/* Parado em etapa warning */}
+          {!lead.next_return_at && stuckDays !== null && stuckDays >= STUCK_DAYS && (
+            <p className="mt-1 text-[10px] font-medium text-orange-500 dark:text-orange-400">
+              Parado em {statusLabel(lead.status)} há {stuckDays}d
+            </p>
+          )}
         </div>
 
+        {/* Actions */}
         <div className="flex shrink-0 flex-wrap gap-1.5">
           <WaButton
             customerId={lead.id}
