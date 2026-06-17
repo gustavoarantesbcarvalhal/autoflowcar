@@ -315,6 +315,40 @@ function ClienteDetalhe() {
             )}
           </div>
 
+          {c.status === "venda_realizada" && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                Dados da Venda
+              </h3>
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">Valor da venda (R$)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  key={c.id as string}
+                  defaultValue={(c.sale_value as number) ?? ""}
+                  onBlur={(e) =>
+                    updateCustomer.mutate({
+                      sale_value: e.target.value ? Number(e.target.value) : null,
+                    })
+                  }
+                  placeholder="Ex: 45000"
+                  className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                />
+              </label>
+              {c.sold_at && (
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Fechada em{" "}
+                  {new Date(c.sold_at as string).toLocaleString("pt-BR", {
+                    day: "2-digit", month: "2-digit", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </p>
+              )}
+            </div>
+          )}
+
           {c.status === "perdido" && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
               <h3 className="mb-2 text-xs font-bold uppercase text-destructive">Motivo da perda</h3>

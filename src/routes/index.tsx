@@ -47,7 +47,7 @@ async function fetchDashboard() {
       .from("customers")
       .select(
         "id,name,phone,whatsapp,status,last_contact_at,next_return_at," +
-        "interest_brand,interest_model,price_max,responsavel_id,created_at,updated_at",
+        "interest_brand,interest_model,price_max,responsavel_id,created_at,updated_at,sold_at,sale_value",
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -170,16 +170,35 @@ function Dashboard() {
     [allCustomers, periodStart],
   );
 
-  // proxy: updated_at ≈ data de fechamento (limitação conhecida, sem sold_at)
   const salesPeriod = useMemo(
     () =>
-      allCustomers.filter(
-        (c) =>
-          c.status === "venda_realizada" &&
-          new Date((c as Record<string, string>).updated_at ?? c.created_at) >= periodStart,
-      ).length,
+      allCustomers.filter((c) => {
+        const r = c as Record<string, string | null>;
+        return c.status === "venda_realizada" && r.sold_at != null && new Date(r.sold_at) >= periodStart;
+      }).length,
     [allCustomers, periodStart],
   );
+
+  const faturamentoPeriod = useMemo(() => {
+    if (!isGerente) return 0;
+    return allCustomers
+      .filter((c) => {
+        const r = c as Record<string, string | null>;
+        return c.status === "venda_realizada" && r.sold_at != null && new Date(r.sold_at) >= periodStart;
+      })
+      .reduce((sum, c) => sum + ((c as Record<string, number>).sale_value ?? 0), 0);
+  }, [isGerente, allCustomers, periodStart]);
+
+  const ticketMedio = useMemo(() => {
+    if (!isGerente) return 0;
+    const comValor = allCustomers.filter((c) => {
+      const r = c as Record<string, number | null>;
+      return c.status === "venda_realizada" && (r.sale_value ?? 0) > 0;
+    });
+    if (comValor.length === 0) return 0;
+    const total = comValor.reduce((sum, c) => sum + ((c as Record<string, number>).sale_value ?? 0), 0);
+    return total / comValor.length;
+  }, [isGerente, allCustomers]);
 
   const negotiating = useMemo(
     () =>
@@ -239,10 +258,13 @@ function Dashboard() {
             new Date(c.next_return_at).getTime() < now &&
             !["venda_realizada", "perdido"].includes(c.status),
         ).length;
-        return { id: p.id, nome: p.nome as string, leads, vendas, atrasados };
+        const faturamento = mine
+          .filter((c) => c.status === "venda_realizada")
+          .reduce((sum, c) => sum + ((c as Record<string, number>).sale_value ?? 0), 0);
+        return { id: p.id, nome: p.nome as string, leads, vendas, atrasados, faturamento };
       })
       .filter((v) => v.leads > 0 || v.vendas > 0)
-      .sort((a, b) => b.vendas - a.vendas || b.leads - a.leads);
+      .sort((a, b) => b.faturamento - a.faturamento || b.vendas - a.vendas || b.leads - a.leads);
   }, [isGerente, teamData, allCustomers]);
 
   // ── Team activity today ───────────────────────────────────────────────────
@@ -317,6 +339,22 @@ function Dashboard() {
           tone={staleLeads.length > 0 ? "warning" : undefined}
         />
       </div>
+
+      {/* Financial KPIs — gerente / admin only */}
+      {isGerente && (
+        <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm">
+          <Kpi
+            label={`Faturamento — ${PERIOD_LABEL[period]}`}
+            value={isLoading ? "…" : faturamentoPeriod > 0 ? formatPriceBRL(faturamentoPeriod) : "R$ 0"}
+            tone="success"
+          />
+          <Kpi
+            label="Ticket Médio (com valor)"
+            value={isLoading ? "…" : ticketMedio > 0 ? formatPriceBRL(ticketMedio) : "—"}
+            hint="Média das vendas com valor informado"
+          />
+        </div>
+      )}
 
       {/* Main 2-column layout */}
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -461,6 +499,7 @@ function Dashboard() {
                       <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vendedor</th>
                       <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Leads</th>
                       <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vendas</th>
+                      <th className="px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Faturamento</th>
                       <th className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atrasados</th>
                     </tr>
                   </thead>
@@ -475,6 +514,11 @@ function Dashboard() {
                         <td className="px-2 py-2.5 text-center">
                           <span className={cn("font-mono font-bold", v.vendas > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
                             {v.vendas}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-right">
+                          <span className={cn("font-mono text-xs font-bold", v.faturamento > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+                            {v.faturamento > 0 ? formatPriceBRL(v.faturamento) : "—"}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-center">
