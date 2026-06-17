@@ -6,7 +6,6 @@ import type { Database } from "@/integrations/supabase/types";
 
 // ============================================================
 // diagnosarServidor — retorna info segura das env vars do servidor
-// Remove após diagnóstico confirmado.
 // ============================================================
 export const diagnosarServidor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -28,12 +27,10 @@ export const diagnosarServidor = createServerFn({ method: "POST" })
 
 const TenantPlanoSchema = z.enum(["starter", "pro", "white_label"]);
 
-/**
- * Verifica se o usuário autenticado existe na tabela super_admins.
- * Usa o cliente com token do usuário (respeita RLS): a política
- * "super_admins_self_select" só devolve a linha se id = auth.uid(),
- * portanto a ausência de resultado é suficiente para negar acesso.
- */
+// ============================================================
+// Helpers
+// ============================================================
+
 async function assertSuperAdmin(supabase: SupabaseClient<Database>, userId: string): Promise<void> {
   const { data, error } = await supabase
     .from("super_admins")
@@ -44,6 +41,37 @@ async function assertSuperAdmin(supabase: SupabaseClient<Database>, userId: stri
   if (error || !data) {
     throw new Error("Acesso negado: apenas super admins podem executar esta operação");
   }
+}
+
+async function getSuperAdminNome(
+  supabaseAdmin: SupabaseClient<Database>,
+  userId: string,
+): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("super_admins")
+    .select("nome")
+    .eq("id", userId)
+    .maybeSingle();
+  return data?.nome ?? null;
+}
+
+async function logAcao(
+  supabaseAdmin: SupabaseClient<Database>,
+  opts: {
+    tenant_id: string | null;
+    tenant_nome: string;
+    acao: string;
+    feito_por_id: string;
+    feito_por_nome: string | null;
+  },
+) {
+  await supabaseAdmin.from("tenant_actions_log").insert({
+    tenant_id:      opts.tenant_id,
+    tenant_nome:    opts.tenant_nome,
+    acao:           opts.acao,
+    feito_por_id:   opts.feito_por_id,
+    feito_por_nome: opts.feito_por_nome,
+  });
 }
 
 // ============================================================
@@ -62,12 +90,10 @@ export const criarTenantComAdmin = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    // 1. Verificar que o chamador é super_admin
     await assertSuperAdmin(context.supabase, context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 2. Criar usuário no Supabase Auth
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email_admin,
       password: data.senha_temporaria,
@@ -78,7 +104,6 @@ export const criarTenantComAdmin = createServerFn({ method: "POST" })
       throw new Error(authError?.message ?? "Erro ao criar usuário");
     }
 
-    // 3. Criar tenant
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from("tenants")
       .insert({
@@ -86,17 +111,16 @@ export const criarTenantComAdmin = createServerFn({ method: "POST" })
         email_admin: data.email_admin,
         plano: data.plano,
         status: "ativo",
+        created_by_id: context.userId,
       })
       .select("id")
       .single();
 
     if (tenantError || !tenant) {
-      // Rollback: remover usuário auth criado
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       throw new Error(tenantError?.message ?? "Erro ao criar loja");
     }
 
-    // 4. Criar user_profile vinculando usuário ao tenant
     const { error: profileError } = await supabaseAdmin.from("user_profiles").insert({
       id: authUser.user.id,
       tenant_id: tenant.id,
@@ -107,17 +131,25 @@ export const criarTenantComAdmin = createServerFn({ method: "POST" })
     });
 
     if (profileError) {
-      // Rollback: remover tenant e usuário auth criados
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
       throw new Error(profileError.message ?? "Erro ao criar perfil");
     }
 
+    const adminNome = await getSuperAdminNome(supabaseAdmin, context.userId);
+    await logAcao(supabaseAdmin, {
+      tenant_id:      tenant.id,
+      tenant_nome:    data.nome,
+      acao:           "criado",
+      feito_por_id:   context.userId,
+      feito_por_nome: adminNome,
+    });
+
     return { tenant_id: tenant.id, user_id: authUser.user.id };
   });
 
 // ============================================================
-// atualizarTenant
+// atualizarTenant — edição de dados (nome, email, plano)
 // ============================================================
 
 export const atualizarTenant = createServerFn({ method: "POST" })
@@ -127,22 +159,224 @@ export const atualizarTenant = createServerFn({ method: "POST" })
       id: z.string().uuid(),
       nome: z.string().min(2).optional(),
       plano: TenantPlanoSchema.optional(),
-      status: z.enum(["ativo", "inativo", "bloqueado"]).optional(),
       email_admin: z.string().email().optional(),
       logo_url: z.string().url().nullable().optional(),
       cor_primaria: z.string().optional(),
     }),
   )
   .handler(async ({ data, context }) => {
-    // 1. Verificar que o chamador é super_admin
     await assertSuperAdmin(context.supabase, context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 2. Executar update com service role (após autorização confirmada)
     const { id, ...updates } = data;
     const { error } = await supabaseAdmin.from("tenants").update(updates).eq("id", id);
 
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ============================================================
+// bloquearTenant
+// ============================================================
+
+export const bloquearTenant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants").select("nome").eq("id", data.id).single();
+
+    const { error } = await supabaseAdmin.from("tenants").update({
+      status:         "bloqueado",
+      blocked_at:     new Date().toISOString(),
+      blocked_by_id:  context.userId,
+    }).eq("id", data.id);
+
+    if (error) throw new Error(error.message);
+
+    const adminNome = await getSuperAdminNome(supabaseAdmin, context.userId);
+    await logAcao(supabaseAdmin, {
+      tenant_id:      data.id,
+      tenant_nome:    tenant?.nome ?? "",
+      acao:           "bloqueado",
+      feito_por_id:   context.userId,
+      feito_por_nome: adminNome,
+    });
+
+    return { ok: true };
+  });
+
+// ============================================================
+// desbloquearTenant
+// ============================================================
+
+export const desbloquearTenant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants").select("nome").eq("id", data.id).single();
+
+    const { error } = await supabaseAdmin.from("tenants").update({
+      status:        "ativo",
+      blocked_at:    null,
+      blocked_by_id: null,
+    }).eq("id", data.id);
+
+    if (error) throw new Error(error.message);
+
+    const adminNome = await getSuperAdminNome(supabaseAdmin, context.userId);
+    await logAcao(supabaseAdmin, {
+      tenant_id:      data.id,
+      tenant_nome:    tenant?.nome ?? "",
+      acao:           "desbloqueado",
+      feito_por_id:   context.userId,
+      feito_por_nome: adminNome,
+    });
+
+    return { ok: true };
+  });
+
+// ============================================================
+// arquivarTenant — preserva dados, bloqueia acesso (status=inativo)
+// ============================================================
+
+export const arquivarTenant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants").select("nome").eq("id", data.id).single();
+
+    const { error } = await supabaseAdmin.from("tenants").update({
+      status:          "inativo",
+      archived_at:     new Date().toISOString(),
+      archived_by_id:  context.userId,
+    }).eq("id", data.id);
+
+    if (error) throw new Error(error.message);
+
+    const adminNome = await getSuperAdminNome(supabaseAdmin, context.userId);
+    await logAcao(supabaseAdmin, {
+      tenant_id:      data.id,
+      tenant_nome:    tenant?.nome ?? "",
+      acao:           "arquivado",
+      feito_por_id:   context.userId,
+      feito_por_nome: adminNome,
+    });
+
+    return { ok: true };
+  });
+
+// ============================================================
+// reativarTenant
+// ============================================================
+
+export const reativarTenant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants").select("nome").eq("id", data.id).single();
+
+    const { error } = await supabaseAdmin.from("tenants").update({
+      status:          "ativo",
+      archived_at:     null,
+      archived_by_id:  null,
+      blocked_at:      null,
+      blocked_by_id:   null,
+    }).eq("id", data.id);
+
+    if (error) throw new Error(error.message);
+
+    const adminNome = await getSuperAdminNome(supabaseAdmin, context.userId);
+    await logAcao(supabaseAdmin, {
+      tenant_id:      data.id,
+      tenant_nome:    tenant?.nome ?? "",
+      acao:           "reativado",
+      feito_por_id:   context.userId,
+      feito_por_nome: adminNome,
+    });
+
+    return { ok: true };
+  });
+
+// ============================================================
+// excluirTenant — exclusão permanente com confirmação de nome
+// Ordem de deleção respeita FKs (NO ACTION nas tabelas CRM):
+//   interactions → appointments → customers → vehicles → tenant
+//   (user_profiles em CASCADE, apagam junto com o tenant)
+// ============================================================
+
+export const excluirTenant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      id: z.string().uuid(),
+      nome_confirmado: z.string().min(1),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Verificar que o nome bate antes de qualquer deleção
+    const { data: tenant, error: fetchErr } = await supabaseAdmin
+      .from("tenants").select("nome").eq("id", data.id).single();
+
+    if (fetchErr || !tenant) throw new Error("Loja não encontrada");
+
+    if (tenant.nome.trim() !== data.nome_confirmado.trim()) {
+      throw new Error("O nome digitado não corresponde ao nome da loja");
+    }
+
+    // Coletar user IDs antes de deletar (user_profiles cascadeiam com o tenant)
+    const { data: profiles } = await supabaseAdmin
+      .from("user_profiles").select("id").eq("tenant_id", data.id);
+    const userIds = (profiles ?? []).map((p) => p.id);
+
+    // Log antes da exclusão (para preservar referência ao nome)
+    const adminNome = await getSuperAdminNome(supabaseAdmin, context.userId);
+    await logAcao(supabaseAdmin, {
+      tenant_id:      null,
+      tenant_nome:    tenant.nome,
+      acao:           "excluido",
+      feito_por_id:   context.userId,
+      feito_por_nome: adminNome,
+    });
+
+    // Deleção em cascata manual (FKs com NO ACTION)
+    await supabaseAdmin.from("interactions").delete().eq("tenant_id", data.id);
+    await supabaseAdmin.from("appointments").delete().eq("tenant_id", data.id);
+    await supabaseAdmin.from("customers").delete().eq("tenant_id", data.id);
+    await supabaseAdmin.from("vehicles").delete().eq("tenant_id", data.id);
+
+    // Deletar tenant (user_profiles cascadeiam automaticamente)
+    const { error: delErr } = await supabaseAdmin.from("tenants").delete().eq("id", data.id);
+    if (delErr) throw new Error(delErr.message);
+
+    // Deletar usuários do Auth
+    for (const uid of userIds) {
+      await supabaseAdmin.auth.admin.deleteUser(uid);
+    }
+
     return { ok: true };
   });

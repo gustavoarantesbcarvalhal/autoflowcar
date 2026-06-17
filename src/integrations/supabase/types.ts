@@ -252,10 +252,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_actions_log: {
+        Row: {
+          acao: string
+          created_at: string
+          feito_por_id: string | null
+          feito_por_nome: string | null
+          id: string
+          tenant_id: string | null
+          tenant_nome: string
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          feito_por_id?: string | null
+          feito_por_nome?: string | null
+          id?: string
+          tenant_id?: string | null
+          tenant_nome: string
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          feito_por_id?: string | null
+          feito_por_nome?: string | null
+          id?: string
+          tenant_id?: string | null
+          tenant_nome?: string
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
+          archived_at: string | null
+          archived_by_id: string | null
+          blocked_at: string | null
+          blocked_by_id: string | null
           cor_primaria: string
           created_at: string
+          created_by_id: string | null
           email_admin: string
           id: string
           logo_url: string | null
@@ -264,8 +299,13 @@ export type Database = {
           status: Database["public"]["Enums"]["tenant_status"]
         }
         Insert: {
+          archived_at?: string | null
+          archived_by_id?: string | null
+          blocked_at?: string | null
+          blocked_by_id?: string | null
           cor_primaria?: string
           created_at?: string
+          created_by_id?: string | null
           email_admin: string
           id?: string
           logo_url?: string | null
@@ -274,8 +314,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["tenant_status"]
         }
         Update: {
+          archived_at?: string | null
+          archived_by_id?: string | null
+          blocked_at?: string | null
+          blocked_by_id?: string | null
           cor_primaria?: string
           created_at?: string
+          created_by_id?: string | null
           email_admin?: string
           id?: string
           logo_url?: string | null
@@ -333,6 +378,9 @@ export type Database = {
           model: string
           notes: string | null
           price: number | null
+          price_fipe: number | null
+          price_listed: number | null
+          price_min_neg: number | null
           status: Database["public"]["Enums"]["vehicle_status"]
           tenant_id: string | null
           updated_at: string
@@ -347,6 +395,9 @@ export type Database = {
           model: string
           notes?: string | null
           price?: number | null
+          price_fipe?: number | null
+          price_listed?: number | null
+          price_min_neg?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           tenant_id?: string | null
           updated_at?: string
@@ -361,6 +412,9 @@ export type Database = {
           model?: string
           notes?: string | null
           price?: number | null
+          price_fipe?: number | null
+          price_listed?: number | null
+          price_min_neg?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           tenant_id?: string | null
           updated_at?: string
