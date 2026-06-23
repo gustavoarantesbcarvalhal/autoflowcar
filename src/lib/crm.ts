@@ -1,12 +1,10 @@
 export const STATUSES = [
-  { id: "novo_lead", label: "Novo Lead", accent: "bg-blue-500" },
   { id: "primeiro_contato", label: "Primeiro Contato", accent: "bg-sky-500" },
-  { id: "interessado", label: "Interessado", accent: "bg-amber-500" },
-  { id: "em_negociacao", label: "Em Negociação", accent: "bg-primary" },
-  { id: "test_drive", label: "Test Drive", accent: "bg-violet-500" },
-  { id: "proposta_enviada", label: "Proposta Enviada", accent: "bg-indigo-500" },
-  { id: "venda_realizada", label: "Venda Realizada", accent: "bg-emerald-500" },
-  { id: "perdido", label: "Perdido", accent: "bg-slate-400" },
+  { id: "em_atendimento",   label: "Em Atendimento",   accent: "bg-amber-500" },
+  { id: "em_negociacao",    label: "Negociação",        accent: "bg-primary" },
+  { id: "visita",           label: "Visita",            accent: "bg-violet-500" },
+  { id: "venda_realizada",  label: "Venda Realizada",   accent: "bg-emerald-500" },
+  { id: "perdido",          label: "Perdido",           accent: "bg-slate-400" },
 ] as const;
 
 export type StatusId = (typeof STATUSES)[number]["id"];
@@ -104,25 +102,25 @@ export const WA_TEMPLATES: Array<{
   {
     id: "primeiro_contato",
     label: "Primeiro contato",
-    suggestFor: ["novo_lead", "primeiro_contato"],
+    suggestFor: ["primeiro_contato"],
     text: "Olá {nome_cliente}! Vi que você tem interesse em {nome_veiculo}. Sou {nome_vendedor} de {nome_loja} e estou aqui para te ajudar. Posso te passar mais informações? 😊",
   },
   {
     id: "retorno",
     label: "Retorno",
-    suggestFor: ["interessado", "em_negociacao", "proposta_enviada"],
+    suggestFor: ["em_atendimento", "em_negociacao"],
     text: "Olá {nome_cliente}! Tudo bem? Passando para dar um retorno sobre o {nome_veiculo} que conversamos. Ainda tem interesse? Posso ajudar com alguma dúvida? 🙂",
   },
   {
     id: "agendamento",
     label: "Agendamento",
-    suggestFor: ["primeiro_contato", "interessado"],
+    suggestFor: ["em_atendimento", "visita"],
     text: "Olá {nome_cliente}! Gostaria de agendar uma visita para você conhecer o {nome_veiculo} pessoalmente aqui em {nome_loja}. Qual horário fica melhor para você esta semana?",
   },
   {
     id: "test_drive",
     label: "Test Drive",
-    suggestFor: ["test_drive", "em_negociacao"],
+    suggestFor: ["visita", "em_negociacao"],
     text: "Olá {nome_cliente}! Que tal vir fazer um test-drive do {nome_veiculo} aqui em {nome_loja}? É a melhor forma de sentir o carro! 🚗 Quando você pode vir?",
   },
   {

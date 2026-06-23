@@ -197,7 +197,7 @@ function Dashboard() {
   const negotiating = useMemo(
     () =>
       activeLeads.filter((c) =>
-        ["em_negociacao", "interessado", "proposta_enviada", "test_drive"].includes(c.status),
+        ["em_atendimento", "em_negociacao", "visita"].includes(c.status),
       ).length,
     [activeLeads],
   );

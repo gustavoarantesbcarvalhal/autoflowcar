@@ -40,7 +40,7 @@ function NovoCliente() {
     interest_vehicle_id: "",
     interest_brand: "", interest_model: "", interest_year: "",
     price_min: "", price_max: "", notes: "",
-    source: "outros", status: "novo_lead",
+    source: "outros", status: "primeiro_contato",
   });
 
   const selectedVehicle = vehicles?.find((v) => v.id === form.interest_vehicle_id) ?? null;

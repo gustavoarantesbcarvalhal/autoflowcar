@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUSES, FOLLOW_UP_TYPES, formatPriceBRL, sourceLabel, statusLabel } from "@/lib/crm";
+import { STATUSES, SOURCES, FOLLOW_UP_TYPES, formatPriceBRL, sourceLabel, statusLabel } from "@/lib/crm";
 import { WaButton } from "@/components/wa-button";
-import { ArrowLeft, Phone, Mail, MapPin, Trash2, CheckCircle2, User, MessageCircle, ImageIcon, X } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { ArrowLeft, Phone, Mail, MapPin, Trash2, CheckCircle2, User, MessageCircle, ImageIcon, X, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -64,10 +65,345 @@ type StockVehicle = {
   price_listed: number | null; photo_main_url: string | null;
 };
 
+type TeamMember = { id: string; nome: string; perfil: string };
+
+// ---------------------------------------------------------------------------
+// EditLeadModal
+// ---------------------------------------------------------------------------
+
+type EditForm = {
+  name: string; phone: string; whatsapp: string; email: string;
+  cpf: string; city: string; notes: string;
+  interest_vehicle_id: string;
+  interest_brand: string; interest_model: string; interest_year: string;
+  price_min: string; price_max: string;
+  source: string; responsavel_id: string;
+};
+
+function buildDiff(
+  original: Record<string, unknown>,
+  updated: Record<string, unknown>,
+  labels: Record<string, string>,
+): string {
+  const lines: string[] = [];
+  for (const key of Object.keys(labels)) {
+    const oldVal = String(original[key] ?? "");
+    const newVal = String(updated[key] ?? "");
+    if (oldVal !== newVal) {
+      lines.push(`${labels[key]}: "${oldVal || "—"}" → "${newVal || "—"}"`);
+    }
+  }
+  return lines.length ? lines.join("\n") : "Sem alterações";
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  name: "Nome", phone: "Telefone", whatsapp: "WhatsApp",
+  email: "E-mail", cpf: "CPF", city: "Cidade", notes: "Obs.",
+  interest_brand: "Marca", interest_model: "Modelo", interest_year: "Ano",
+  price_min: "Preço mín.", price_max: "Preço máx.",
+  source: "Origem", responsavel_id: "Responsável",
+};
+
+function EditLeadModal({
+  customer,
+  stockVehicles,
+  teamMembers,
+  canEditResponsavel,
+  onClose,
+  onSaved,
+}: {
+  customer: Record<string, unknown>;
+  stockVehicles: StockVehicle[];
+  teamMembers: TeamMember[];
+  canEditResponsavel: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [form, setForm] = useState<EditForm>({
+    name:               String(customer.name ?? ""),
+    phone:              String(customer.phone ?? ""),
+    whatsapp:           String(customer.whatsapp ?? ""),
+    email:              String(customer.email ?? ""),
+    cpf:                String(customer.cpf ?? ""),
+    city:               String(customer.city ?? ""),
+    notes:              String(customer.notes ?? ""),
+    interest_vehicle_id: String(customer.interest_vehicle_id ?? ""),
+    interest_brand:     String(customer.interest_brand ?? ""),
+    interest_model:     String(customer.interest_model ?? ""),
+    interest_year:      String(customer.interest_year ?? ""),
+    price_min:          customer.price_min != null ? String(customer.price_min) : "",
+    price_max:          customer.price_max != null ? String(customer.price_max) : "",
+    source:             String(customer.source ?? "outros"),
+    responsavel_id:     String(customer.responsavel_id ?? ""),
+  });
+  const [saving, setSaving] = useState(false);
+
+  const selectedVehicle = stockVehicles.find((v) => v.id === form.interest_vehicle_id) ?? null;
+
+  function setF<K extends keyof EditForm>(k: K, v: string) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  function handleVehicleSelect(vehicleId: string) {
+    if (!vehicleId) {
+      setForm((f) => ({ ...f, interest_vehicle_id: "" }));
+      return;
+    }
+    const v = stockVehicles.find((sv) => sv.id === vehicleId);
+    if (v) {
+      setForm((f) => ({
+        ...f,
+        interest_vehicle_id: vehicleId,
+        interest_brand: v.brand,
+        interest_model: [v.model, v.version].filter(Boolean).join(" "),
+        interest_year: v.year ? String(v.year) : f.interest_year,
+      }));
+    }
+  }
+
+  async function handleSave() {
+    if (!form.name.trim()) { toast.error("Nome é obrigatório"); return; }
+    setSaving(true);
+    try {
+      const patch: Record<string, unknown> = {
+        name:               form.name.trim(),
+        phone:              form.phone || null,
+        whatsapp:           form.whatsapp || null,
+        email:              form.email || null,
+        cpf:                form.cpf || null,
+        city:               form.city || null,
+        notes:              form.notes || null,
+        interest_vehicle_id: form.interest_vehicle_id || null,
+        interest_brand:     form.interest_brand || null,
+        interest_model:     form.interest_model || null,
+        interest_year:      form.interest_year || null,
+        price_min:          form.price_min ? Number(form.price_min) : null,
+        price_max:          form.price_max ? Number(form.price_max) : null,
+        source:             form.source || null,
+        responsavel_id:     form.responsavel_id || null,
+      };
+
+      const { error: updateErr } = await supabase
+        .from("customers")
+        .update(patch as never)
+        .eq("id", customer.id as string);
+      if (updateErr) throw updateErr;
+
+      const originalForDiff: Record<string, unknown> = {
+        name: customer.name, phone: customer.phone, whatsapp: customer.whatsapp,
+        email: customer.email, cpf: customer.cpf, city: customer.city,
+        notes: customer.notes, interest_brand: customer.interest_brand,
+        interest_model: customer.interest_model, interest_year: customer.interest_year,
+        price_min: customer.price_min, price_max: customer.price_max,
+        source: customer.source, responsavel_id: customer.responsavel_id,
+      };
+      const updatedForDiff: Record<string, unknown> = {
+        name: patch.name, phone: patch.phone, whatsapp: patch.whatsapp,
+        email: patch.email, cpf: patch.cpf, city: patch.city,
+        notes: patch.notes, interest_brand: patch.interest_brand,
+        interest_model: patch.interest_model, interest_year: patch.interest_year,
+        price_min: patch.price_min, price_max: patch.price_max,
+        source: patch.source, responsavel_id: patch.responsavel_id,
+      };
+      const diff = buildDiff(originalForDiff, updatedForDiff, FIELD_LABELS);
+
+      await supabase.from("interactions").insert({
+        customer_id: customer.id as string,
+        type: "edicao" as never,
+        content: diff,
+        user_id: user?.id ?? null,
+      });
+
+      toast.success("Cadastro atualizado");
+      onSaved();
+      onClose();
+    } catch (e: unknown) {
+      toast.error((e as Error).message ?? "Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card shadow-2xl">
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-4 sticky top-0 bg-card z-10">
+          <h2 className="text-base font-bold">Editar Cliente</h2>
+          <button onClick={onClose} className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+
+          {/* Dados Pessoais */}
+          <section>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Dados Pessoais</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <EField label="Nome *" value={form.name} onChange={(v) => setF("name", v)} className="sm:col-span-2" />
+              <EField label="Telefone" value={form.phone} onChange={(v) => setF("phone", v)} />
+              <EField label="WhatsApp" value={form.whatsapp} onChange={(v) => setF("whatsapp", v)} />
+              <EField label="E-mail" value={form.email} onChange={(v) => setF("email", v)} />
+              <EField label="CPF" value={form.cpf} onChange={(v) => setF("cpf", v)} />
+              <EField label="Cidade" value={form.city} onChange={(v) => setF("city", v)} className="sm:col-span-2" />
+              <div className="sm:col-span-2">
+                <label className="block">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Observações</span>
+                  <textarea
+                    value={form.notes}
+                    onChange={(e) => setF("notes", e.target.value)}
+                    rows={3}
+                    className="mt-1 w-full rounded-md border border-border bg-background p-2 text-sm outline-none focus:border-primary/60"
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          {/* Dados Comerciais */}
+          <section>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Dados Comerciais</p>
+
+            {/* Vínculo com estoque */}
+            <label className="mb-2 block">
+              <span className="text-[10px] font-bold uppercase text-muted-foreground">Veículo do estoque</span>
+              <select
+                value={form.interest_vehicle_id}
+                onChange={(e) => handleVehicleSelect(e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+              >
+                <option value="">— Sem vínculo com estoque —</option>
+                {stockVehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.brand} {v.model}{v.version ? ` ${v.version}` : ""} {v.year}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {selectedVehicle && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2">
+                {selectedVehicle.photo_main_url ? (
+                  <img src={selectedVehicle.photo_main_url} alt="" className="size-10 flex-shrink-0 rounded object-cover" />
+                ) : (
+                  <div className="flex size-10 flex-shrink-0 items-center justify-center rounded bg-muted">
+                    <ImageIcon className="size-3.5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold">
+                    {selectedVehicle.brand} {selectedVehicle.model}{selectedVehicle.version ? ` ${selectedVehicle.version}` : ""}
+                  </p>
+                  {selectedVehicle.price_listed && (
+                    <p className="text-[10px] font-medium text-primary">{formatPriceBRL(selectedVehicle.price_listed)}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, interest_vehicle_id: "" }))}
+                  className="flex-shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <EField label="Marca" value={form.interest_brand} onChange={(v) => setF("interest_brand", v)} />
+              <EField label="Modelo" value={form.interest_model} onChange={(v) => setF("interest_model", v)} />
+              <EField label="Ano" value={form.interest_year} onChange={(v) => setF("interest_year", v)} />
+              <div className="grid grid-cols-2 gap-2">
+                <EField label="Preço mín. (R$)" value={form.price_min} onChange={(v) => setF("price_min", v)} type="number" />
+                <EField label="Preço máx. (R$)" value={form.price_max} onChange={(v) => setF("price_max", v)} type="number" />
+              </div>
+              <div>
+                <label className="block">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground">Origem</span>
+                  <select
+                    value={form.source}
+                    onChange={(e) => setF("source", e.target.value)}
+                    className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+                  >
+                    {SOURCES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              {canEditResponsavel && teamMembers.length > 0 && (
+                <div>
+                  <label className="block">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Responsável</span>
+                    <select
+                      value={form.responsavel_id}
+                      onChange={(e) => setF("responsavel_id", e.target.value)}
+                      className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+                    >
+                      <option value="">— Sem responsável —</option>
+                      {teamMembers.map((m) => (
+                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4 sticky bottom-0 bg-card">
+          <button
+            onClick={onClose}
+            className="h-9 rounded-md border border-border px-4 text-sm font-medium hover:bg-muted"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-9 rounded-md bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
+            {saving ? "Salvando…" : "Salvar alterações"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EField({
+  label, value, onChange, type = "text", className,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; className?: string;
+}) {
+  return (
+    <label className={className}>
+      <span className="text-[10px] font-bold uppercase text-muted-foreground">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
+      />
+    </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ClienteDetalhe
+// ---------------------------------------------------------------------------
+
 function ClienteDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { perfil } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ["customer", id], queryFn: () => fetchCustomer(id) });
 
   const { data: stockVehicles = [] } = useQuery<StockVehicle[]>({
@@ -83,8 +419,26 @@ function ClienteDetalhe() {
     },
   });
 
+  const { data: teamMembers = [] } = useQuery<TeamMember[]>({
+    queryKey: ["team-members"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("id,nome,perfil")
+        .eq("ativo", true)
+        .neq("perfil", "super_admin")
+        .order("nome");
+      if (error) return [];
+      return (data ?? []) as TeamMember[];
+    },
+    enabled: perfil !== "vendedor",
+  });
+
+  const canEditResponsavel = perfil !== "vendedor";
+
   const [note, setNote] = useState("");
   const [type, setType] = useState("nota");
+  const [showEdit, setShowEdit] = useState(false);
 
   const addInteraction = useMutation({
     mutationFn: async () => {
@@ -150,6 +504,12 @@ function ClienteDetalhe() {
           </div>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowEdit(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted"
+          >
+            <Pencil className="size-4" /> Editar
+          </button>
           <WaButton
             customerId={id}
             nome={c.name as string}
@@ -221,7 +581,7 @@ function ClienteDetalhe() {
                     <div className="rounded-lg border border-border bg-card p-3">
                       <div className="flex flex-wrap items-center justify-between gap-1">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                          {it.type.replace(/_/g, " ")}
+                          {it.type === "edicao" ? "Edição de cadastro" : it.type.replace(/_/g, " ")}
                         </span>
                         <div className="flex items-center gap-2">
                           {it.user_nome && (
@@ -470,6 +830,17 @@ function ClienteDetalhe() {
           )}
         </aside>
       </div>
+
+      {showEdit && (
+        <EditLeadModal
+          customer={c}
+          stockVehicles={stockVehicles}
+          teamMembers={teamMembers}
+          canEditResponsavel={canEditResponsavel}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["customer", id] })}
+        />
+      )}
     </div>
   );
 }

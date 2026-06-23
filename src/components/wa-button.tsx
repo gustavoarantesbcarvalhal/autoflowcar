@@ -50,7 +50,7 @@ export function WaButton({
   numero,
   marca,
   modelo,
-  status = "novo_lead",
+  status = "primeiro_contato",
   size = "md",
   onSuccess,
 }: WaButtonProps) {

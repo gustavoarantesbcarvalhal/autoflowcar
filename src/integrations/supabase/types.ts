@@ -81,6 +81,7 @@ export type Database = {
       customers: {
         Row: {
           city: string | null
+          cpf: string | null
           created_at: string
           email: string | null
           id: string
@@ -111,6 +112,7 @@ export type Database = {
         }
         Insert: {
           city?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -141,6 +143,7 @@ export type Database = {
         }
         Update: {
           city?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -552,6 +555,7 @@ export type Database = {
         | "veiculo_apresentado"
         | "perda"
         | "retorno"
+        | "edicao"
       lead_source:
         | "instagram"
         | "facebook"
@@ -569,6 +573,8 @@ export type Database = {
         | "proposta_enviada"
         | "venda_realizada"
         | "perdido"
+        | "em_atendimento"
+        | "visita"
       tenant_plano: "starter" | "pro" | "white_label"
       tenant_status: "ativo" | "inativo" | "bloqueado"
       user_perfil: "super_admin" | "admin_loja" | "gerente" | "vendedor"
@@ -712,6 +718,7 @@ export const Constants = {
         "veiculo_apresentado",
         "perda",
         "retorno",
+        "edicao",
       ],
       lead_source: [
         "instagram",
@@ -731,6 +738,8 @@ export const Constants = {
         "proposta_enviada",
         "venda_realizada",
         "perdido",
+        "em_atendimento",
+        "visita",
       ],
       tenant_plano: ["starter", "pro", "white_label"],
       tenant_status: ["ativo", "inativo", "bloqueado"],
