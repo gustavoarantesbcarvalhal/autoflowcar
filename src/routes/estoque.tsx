@@ -58,11 +58,18 @@ type VehiclePhoto = {
 };
 
 // ---------------------------------------------------------------------------
-// Currency input
+// Numeric input helpers
 // ---------------------------------------------------------------------------
 
-function parseCurrencyDigits(raw: string): string {
-  return raw.replace(/\D/g, "");
+function parseRawCurrency(raw: string): string {
+  const s = raw.replace(/R\$\s?/g, "").trim();
+  if (s.includes(",")) {
+    // Brazilian decimal format: "20.000,00" → remove thousand-dots → replace comma → round cents
+    const normalized = s.replace(/\./g, "").replace(",", ".");
+    const n = parseFloat(normalized);
+    return isNaN(n) ? "" : String(Math.round(n));
+  }
+  return s.replace(/\D/g, "");
 }
 
 function CurrencyInput({
@@ -70,15 +77,51 @@ function CurrencyInput({
 }: {
   placeholder: string; value: string; onChange: (digits: string) => void;
 }) {
-  const preview = value ? formatPriceBRL(Number(value)) : null;
+  const [focused, setFocused] = useState(false);
+  const num = value !== "" ? Number(value) : null;
+  const displayValue = focused
+    ? value
+    : num != null ? new Intl.NumberFormat("pt-BR").format(num) : "";
+  const preview = num != null ? formatPriceBRL(num) : null;
   return (
     <div>
       <input
-        type="text" inputMode="numeric" placeholder={placeholder} value={value}
-        onChange={(e) => onChange(parseCurrencyDigits(e.target.value))}
+        type="text" inputMode="numeric" placeholder={placeholder}
+        value={displayValue}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onChange={(e) => onChange(parseRawCurrency(e.target.value))}
         className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
       />
       {preview && <p className="mt-0.5 text-[10px] font-medium text-primary">{preview}</p>}
+    </div>
+  );
+}
+
+function KmInput({
+  placeholder, value, onChange,
+}: {
+  placeholder: string; value: string; onChange: (digits: string) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const num = value !== "" ? Number(value) : null;
+  const displayValue = focused
+    ? value
+    : num != null ? new Intl.NumberFormat("pt-BR").format(num) : "";
+  const preview = num != null
+    ? `${new Intl.NumberFormat("pt-BR").format(num)} km`
+    : null;
+  return (
+    <div>
+      <input
+        type="text" inputMode="numeric" placeholder={placeholder}
+        value={displayValue}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+      />
+      {preview && <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">{preview}</p>}
     </div>
   );
 }
@@ -597,8 +640,12 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div>
             <label className={lbl}>Ano</label>
-            <input type="number" placeholder="2022" value={f.year}
-              onChange={(e) => setF({ ...f, year: e.target.value })} className={inp} />
+            <input
+              type="text" inputMode="numeric" maxLength={4} placeholder="2022"
+              value={f.year}
+              onChange={(e) => setF({ ...f, year: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+              className={inp}
+            />
           </div>
           <div>
             <label className={lbl}>Cor</label>
@@ -607,10 +654,11 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
           </div>
           <div>
             <label className={lbl}>KM</label>
-            <input type="text" inputMode="numeric" placeholder="45000"
+            <KmInput
+              placeholder="45000"
               value={f.mileage}
-              onChange={(e) => setF({ ...f, mileage: parseCurrencyDigits(e.target.value) })}
-              className={inp} />
+              onChange={(v) => setF({ ...f, mileage: v })}
+            />
           </div>
           <div>
             <label className={lbl}>Status</label>
