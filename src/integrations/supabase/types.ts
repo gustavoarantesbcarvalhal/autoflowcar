@@ -86,6 +86,7 @@ export type Database = {
           id: string
           interest_brand: string | null
           interest_model: string | null
+          interest_vehicle_id: string | null
           interest_year: string | null
           is_priority: boolean
           last_contact_at: string | null
@@ -115,6 +116,7 @@ export type Database = {
           id?: string
           interest_brand?: string | null
           interest_model?: string | null
+          interest_vehicle_id?: string | null
           interest_year?: string | null
           is_priority?: boolean
           last_contact_at?: string | null
@@ -144,6 +146,7 @@ export type Database = {
           id?: string
           interest_brand?: string | null
           interest_model?: string | null
+          interest_vehicle_id?: string | null
           interest_year?: string | null
           is_priority?: boolean
           last_contact_at?: string | null
@@ -167,6 +170,13 @@ export type Database = {
           whatsapp?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "customers_interest_vehicle_id_fkey"
+            columns: ["interest_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customers_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -368,56 +378,122 @@ export type Database = {
           },
         ]
       }
+      vehicle_photos: {
+        Row: {
+          created_at: string
+          id: string
+          is_main: boolean
+          ordem: number
+          path: string
+          tenant_id: string
+          url: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_main?: boolean
+          ordem?: number
+          path: string
+          tenant_id?: string
+          url: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_main?: boolean
+          ordem?: number
+          path?: string
+          tenant_id?: string
+          url?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_photos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_photos_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           brand: string
           color: string | null
           created_at: string
+          deal_offer: string | null
+          description: string | null
+          fuel: string | null
           id: string
           mileage: number | null
           model: string
           notes: string | null
+          photo_main_url: string | null
           price: number | null
           price_fipe: number | null
           price_listed: number | null
           price_min_neg: number | null
           status: Database["public"]["Enums"]["vehicle_status"]
           tenant_id: string | null
+          transmission: string | null
           updated_at: string
+          version: string | null
           year: number | null
         }
         Insert: {
           brand: string
           color?: string | null
           created_at?: string
+          deal_offer?: string | null
+          description?: string | null
+          fuel?: string | null
           id?: string
           mileage?: number | null
           model: string
           notes?: string | null
+          photo_main_url?: string | null
           price?: number | null
           price_fipe?: number | null
           price_listed?: number | null
           price_min_neg?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           tenant_id?: string | null
+          transmission?: string | null
           updated_at?: string
+          version?: string | null
           year?: number | null
         }
         Update: {
           brand?: string
           color?: string | null
           created_at?: string
+          deal_offer?: string | null
+          description?: string | null
+          fuel?: string | null
           id?: string
           mileage?: number | null
           model?: string
           notes?: string | null
+          photo_main_url?: string | null
           price?: number | null
           price_fipe?: number | null
           price_listed?: number | null
           price_min_neg?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           tenant_id?: string | null
+          transmission?: string | null
           updated_at?: string
+          version?: string | null
           year?: number | null
         }
         Relationships: [

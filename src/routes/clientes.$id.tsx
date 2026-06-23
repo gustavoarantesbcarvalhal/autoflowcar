@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUSES, FOLLOW_UP_TYPES, formatPriceBRL, sourceLabel, statusLabel } from "@/lib/crm";
 import { WaButton } from "@/components/wa-button";
-import { ArrowLeft, Phone, Mail, MapPin, Trash2, CheckCircle2, User, MessageCircle } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Trash2, CheckCircle2, User, MessageCircle, ImageIcon, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -58,11 +58,30 @@ async function fetchCustomer(id: string) {
   return { customer: c.data, interactions: richInteractions, appointments: a.data ?? [] };
 }
 
+type StockVehicle = {
+  id: string; brand: string; model: string;
+  version: string | null; year: number | null;
+  price_listed: number | null; photo_main_url: string | null;
+};
+
 function ClienteDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["customer", id], queryFn: () => fetchCustomer(id) });
+
+  const { data: stockVehicles = [] } = useQuery<StockVehicle[]>({
+    queryKey: ["vehicles-disponivel"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicles")
+        .select("id,brand,model,version,year,price_listed,photo_main_url")
+        .neq("status", "vendido")
+        .order("brand");
+      if (error) return [];
+      return (data ?? []) as StockVehicle[];
+    },
+  });
 
   const [note, setNote] = useState("");
   const [type, setType] = useState("nota");
@@ -323,6 +342,67 @@ function ClienteDetalhe() {
           {/* Interesse */}
           <div className="rounded-xl border border-border bg-card p-4">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-widest">Interesse</h3>
+
+            {/* Vínculo com estoque */}
+            <div className="mb-3">
+              <span className="text-[10px] font-bold uppercase text-muted-foreground">Veículo do estoque</span>
+              <select
+                value={(c.interest_vehicle_id as string) ?? ""}
+                onChange={(e) => {
+                  const vehicleId = e.target.value || null;
+                  const v = stockVehicles.find((v) => v.id === vehicleId);
+                  updateCustomer.mutate({
+                    interest_vehicle_id: vehicleId,
+                    ...(v && {
+                      interest_brand: v.brand,
+                      interest_model: [v.model, v.version].filter(Boolean).join(" "),
+                      interest_year:  v.year ? String(v.year) : undefined,
+                    }),
+                  });
+                }}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+              >
+                <option value="">— Sem vínculo com estoque —</option>
+                {stockVehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.brand} {v.model}{v.version ? ` ${v.version}` : ""} {v.year}
+                  </option>
+                ))}
+              </select>
+
+              {/* Card do veículo vinculado */}
+              {(() => {
+                const linked = stockVehicles.find((v) => v.id === (c.interest_vehicle_id as string));
+                if (!linked) return null;
+                return (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2">
+                    {linked.photo_main_url ? (
+                      <img src={linked.photo_main_url} alt="" className="size-10 flex-shrink-0 rounded object-cover" />
+                    ) : (
+                      <div className="flex size-10 flex-shrink-0 items-center justify-center rounded bg-muted">
+                        <ImageIcon className="size-3.5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold">
+                        {linked.brand} {linked.model}{linked.version ? ` ${linked.version}` : ""}
+                      </p>
+                      {linked.price_listed && (
+                        <p className="text-[10px] font-medium text-primary">{formatPriceBRL(linked.price_listed)}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => updateCustomer.mutate({ interest_vehicle_id: null })}
+                      className="flex-shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive"
+                      title="Desvincular"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+
             <dl className="space-y-1 text-sm">
               <Row k="Marca"  v={c.interest_brand as string} />
               <Row k="Modelo" v={c.interest_model as string} />
