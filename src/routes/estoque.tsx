@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { VEHICLE_STATUSES, formatPriceBRL } from "@/lib/crm";
-import { Plus, Trash2, X, ImageIcon, Upload } from "lucide-react";
+import { Plus, Trash2, X, ImageIcon, Upload, Pencil } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -148,6 +148,7 @@ function EstoquePage() {
   const { data, isLoading } = useQuery({ queryKey: ["vehicles"], queryFn: fetchVehicles });
   const [showNew, setShowNew] = useState(false);
   const [photoVehicle, setPhotoVehicle] = useState<Vehicle | null>(null);
+  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const now = new Date();
   const [filter, setFilter] = useState({
     q: "", range: 0, status: "", month: -1, year: now.getFullYear(),
@@ -368,13 +369,22 @@ function EstoquePage() {
                     </select>
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => setPhotoVehicle(v)}
-                      title="Gerenciar fotos"
-                      className="inline-flex items-center gap-1 rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                      <ImageIcon className="size-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setEditVehicle(v)}
+                        title="Editar veículo"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => setPhotoVehicle(v)}
+                        title="Gerenciar fotos"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <ImageIcon className="size-4" />
+                      </button>
+                    </div>
                   </td>
                   <td className="p-3">
                     <button
@@ -405,6 +415,244 @@ function EstoquePage() {
           onMainChanged={(url) => onPhotoMainChanged(photoVehicle.id, url)}
         />
       )}
+
+      {editVehicle && (
+        <EditVehicleModal
+          vehicle={editVehicle}
+          onClose={() => setEditVehicle(null)}
+          onSaved={(updated) => {
+            qc.setQueryData<Vehicle[]>(["vehicles"], (old) =>
+              old?.map((v) => v.id === updated.id ? updated : v) ?? []
+            );
+            setEditVehicle(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EditVehicleModal
+// ---------------------------------------------------------------------------
+
+type VehicleEditForm = {
+  brand: string; model: string; version: string;
+  year: string; color: string; mileage: string;
+  fuel: string; transmission: string;
+  price_listed: string; price_fipe: string;
+  deal_offer: string; description: string;
+  status: string;
+};
+
+function vehicleToForm(v: Vehicle): VehicleEditForm {
+  return {
+    brand:        v.brand,
+    model:        v.model,
+    version:      v.version ?? "",
+    year:         v.year != null ? String(v.year) : "",
+    color:        v.color ?? "",
+    mileage:      v.mileage != null ? String(v.mileage) : "",
+    fuel:         v.fuel ?? "",
+    transmission: v.transmission ?? "",
+    price_listed: v.price_listed != null ? String(Math.round(Number(v.price_listed))) : "",
+    price_fipe:   v.price_fipe   != null ? String(Math.round(Number(v.price_fipe)))   : "",
+    deal_offer:   v.deal_offer ?? "",
+    description:  v.description ?? "",
+    status:       v.status,
+  };
+}
+
+function EditVehicleModal({
+  vehicle,
+  onClose,
+  onSaved,
+}: {
+  vehicle: Vehicle;
+  onClose: () => void;
+  onSaved: (updated: Vehicle) => void;
+}) {
+  const [f, setF] = useState<VehicleEditForm>(() => vehicleToForm(vehicle));
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!f.brand.trim() || !f.model.trim()) throw new Error("Marca e modelo são obrigatórios");
+      const patch = {
+        brand:        f.brand.trim(),
+        model:        f.model.trim(),
+        version:      f.version || null,
+        year:         f.year ? Number(f.year) : null,
+        color:        f.color || null,
+        mileage:      f.mileage ? Number(f.mileage) : null,
+        fuel:         f.fuel || null,
+        transmission: f.transmission || null,
+        price_listed: f.price_listed ? Number(f.price_listed) : null,
+        price_fipe:   f.price_fipe   ? Number(f.price_fipe)   : null,
+        deal_offer:   f.deal_offer || null,
+        description:  f.description || null,
+        status:       f.status as Vehicle["status"],
+      };
+      const { data, error } = await supabase
+        .from("vehicles")
+        .update(patch as never)
+        .eq("id", vehicle.id)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data as Vehicle;
+    },
+    onSuccess: (updated) => {
+      toast.success("Veículo atualizado");
+      onSaved(updated);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const inp = "h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60";
+  const lbl = "mb-1 block text-[10px] font-bold uppercase text-muted-foreground";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card shadow-2xl">
+
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-5 py-4">
+          <h2 className="text-base font-bold">
+            Editar — {vehicle.brand} {vehicle.model}
+            {vehicle.version ? ` ${vehicle.version}` : ""}
+          </h2>
+          <button onClick={onClose} className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+
+          {/* Informações básicas */}
+          <section>
+            <p className={cn(lbl, "mb-3")}>Informações Básicas</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className={lbl}>Marca *</label>
+                <input value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inp} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={lbl}>Modelo *</label>
+                <input value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inp} />
+              </div>
+              <div>
+                <label className={lbl}>Versão</label>
+                <input value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} placeholder="Ex: XEi" className={inp} />
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className={lbl}>Ano</label>
+                <input
+                  type="text" inputMode="numeric" maxLength={4} placeholder="2022"
+                  value={f.year}
+                  onChange={(e) => setF({ ...f, year: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                  className={inp}
+                />
+              </div>
+              <div>
+                <label className={lbl}>Cor</label>
+                <input value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} placeholder="Prata" className={inp} />
+              </div>
+              <div>
+                <label className={lbl}>KM</label>
+                <KmInput placeholder="45000" value={f.mileage} onChange={(v) => setF({ ...f, mileage: v })} />
+              </div>
+              <div>
+                <label className={lbl}>Status</label>
+                <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inp, "cursor-pointer")}>
+                  {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className={lbl}>Combustível</label>
+                <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inp, "cursor-pointer")}>
+                  <option value="">— Selecionar —</option>
+                  {FUEL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={lbl}>Câmbio</label>
+                <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inp, "cursor-pointer")}>
+                  <option value="">— Selecionar —</option>
+                  {TRANSMISSION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* Informações comerciais */}
+          <section>
+            <p className={cn(lbl, "mb-3")}>Informações Comerciais</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className={lbl}>Valor anunciado</label>
+                <CurrencyInput placeholder="Ex: 59900" value={f.price_listed} onChange={(v) => setF({ ...f, price_listed: v })} />
+              </div>
+              <div>
+                <label className={lbl}>Tabela FIPE</label>
+                <CurrencyInput placeholder="Ex: 58200" value={f.price_fipe} onChange={(v) => setF({ ...f, price_fipe: v })} />
+              </div>
+            </div>
+          </section>
+
+          {/* Oferta e Descrição */}
+          <section>
+            <p className={cn(lbl, "mb-3")}>Oferta / Descrição</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className={lbl}>Oferta / Bônus</label>
+                <textarea
+                  value={f.deal_offer}
+                  onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
+                  rows={4}
+                  placeholder={"Transferência grátis\nTanque cheio\nIPVA pago"}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary/60"
+                />
+              </div>
+              <div>
+                <label className={lbl}>Descrição do veículo</label>
+                <textarea
+                  value={f.description}
+                  onChange={(e) => setF({ ...f, description: e.target.value })}
+                  rows={4}
+                  placeholder={"Motor 1.4\nAr condicionado\nMultimídia"}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary/60"
+                />
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-border bg-card px-5 py-4">
+          <button
+            onClick={onClose}
+            className="h-9 rounded-md border border-border px-4 text-sm font-medium hover:bg-muted"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => save.mutate()}
+            disabled={save.isPending}
+            className="h-9 rounded-md bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
+            {save.isPending ? "Salvando…" : "Salvar alterações"}
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
