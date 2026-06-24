@@ -124,7 +124,7 @@ function TenantModal({ tenant, onClose, onSuccess }: {
             </div>
           )}
           <Field label="Nome da loja">
-            <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: AutoFlow Campinas" required className={inputCls} />
+            <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: DriverLeads Campinas" required className={inputCls} />
           </Field>
           <Field label="E-mail do admin">
             <input type="email" value={emailAdmin} onChange={(e) => setEmailAdmin(e.target.value)} placeholder="admin@loja.com" required className={inputCls} />
@@ -324,7 +324,7 @@ function AdminPage() {
           <div className="grid size-7 place-items-center rounded bg-primary">
             <div className="size-3 rotate-45 bg-primary-foreground" />
           </div>
-          <span className="font-bold tracking-tight">AUTOFLOW</span>
+          <span className="font-bold tracking-tight">DRIVERLEADS</span>
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
             Super Admin
           </span>

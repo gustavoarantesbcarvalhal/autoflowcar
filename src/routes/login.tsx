@@ -78,7 +78,7 @@ function LoginPage() {
           <div className="grid size-10 place-items-center rounded-lg bg-primary">
             <div className="size-4 rotate-45 bg-primary-foreground" />
           </div>
-          <span className="text-2xl font-bold tracking-tight">AUTOFLOW</span>
+          <span className="text-2xl font-bold tracking-tight">DRIVERLEADS</span>
           <p className="text-sm text-muted-foreground">CRM para Lojas de Veículos</p>
         </div>
 
@@ -90,7 +90,7 @@ function LoginPage() {
               <div>
                 <p className="text-sm font-semibold text-destructive">Loja bloqueada</p>
                 <p className="mt-0.5 text-xs text-destructive/80">
-                  Entre em contato com o suporte AutoFlow para desbloquear sua conta.
+                  Entre em contato com o suporte DriverLeads para desbloquear sua conta.
                 </p>
               </div>
             </div>

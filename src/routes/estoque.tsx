@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/estoque")({
-  head: () => ({ meta: [{ title: "Estoque de Veículos — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Estoque de Veículos — DriverLeads" }] }),
   component: EstoquePage,
 });
 

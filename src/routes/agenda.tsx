@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Plus, CheckCircle2, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/agenda")({
-  head: () => ({ meta: [{ title: "Agenda — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Agenda — DriverLeads" }] }),
   component: AgendaPage,
 });
 

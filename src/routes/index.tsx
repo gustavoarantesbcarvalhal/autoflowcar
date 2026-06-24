@@ -12,7 +12,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Dashboard Comercial — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Dashboard Comercial — DriverLeads" }] }),
   component: Dashboard,
 });
 

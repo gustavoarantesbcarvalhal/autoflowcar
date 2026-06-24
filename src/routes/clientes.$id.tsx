@@ -9,7 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/clientes/$id")({
-  head: () => ({ meta: [{ title: "Cliente — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Cliente — DriverLeads" }] }),
   component: ClienteDetalhe,
 });
 

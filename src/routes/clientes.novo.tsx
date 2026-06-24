@@ -8,7 +8,7 @@ import { ArrowLeft, ImageIcon, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/clientes/novo")({
-  head: () => ({ meta: [{ title: "Novo Cliente — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Novo Cliente — DriverLeads" }] }),
   component: NovoCliente,
 });
 

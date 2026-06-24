@@ -73,14 +73,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "AutoFlow — CRM para Lojas de Veículos" },
+      { title: "DriverLeads — CRM para Lojas de Veículos" },
       {
         name: "description",
         content:
           "CRM rápido para vendedores: pipeline kanban, follow-up automático, estoque e agenda em um só lugar.",
       },
-      { property: "og:title", content: "AutoFlow — CRM para Lojas de Veículos" },
-      { name: "twitter:title", content: "AutoFlow — CRM para Lojas de Veículos" },
+      { property: "og:title", content: "DriverLeads — CRM para Lojas de Veículos" },
+      { name: "twitter:title", content: "DriverLeads — CRM para Lojas de Veículos" },
       {
         property: "og:description",
         content:
@@ -150,7 +150,7 @@ function BlockedScreen() {
         </div>
         <h1 className="text-xl font-semibold">Acesso bloqueado</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sua conta está bloqueada ou inativa. Entre em contato com o suporte AutoFlow.
+          Sua conta está bloqueada ou inativa. Entre em contato com o suporte DriverLeads.
         </p>
         <button
           onClick={() => signOut()}

@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/followup")({
-  head: () => ({ meta: [{ title: "Follow-up — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Follow-up — DriverLeads" }] }),
   component: FollowupPage,
 });
 

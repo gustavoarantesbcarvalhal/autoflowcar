@@ -53,7 +53,7 @@ function ExportarPage() {
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Leads");
-      XLSX.writeFile(wb, `leads-autoflow-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(wb, `leads-driverleads-${new Date().toISOString().slice(0, 10)}.xlsx`);
       toast.success(`${rows.length} leads exportados`);
     } catch (e) { toast.error((e as Error).message); } finally { setLoading(false); }
   }
@@ -67,7 +67,7 @@ function ExportarPage() {
       const csv = XLSX.utils.sheet_to_csv(ws);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = `leads-autoflow-${new Date().toISOString().slice(0, 10)}.csv`;
+      const a = document.createElement("a"); a.href = url; a.download = `leads-driverleads-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click(); URL.revokeObjectURL(url);
       toast.success(`${rows.length} leads exportados`);
     } catch (e) { toast.error((e as Error).message); } finally { setLoading(false); }

@@ -100,7 +100,7 @@ export function TopNav() {
           <div className="grid size-7 place-items-center rounded bg-primary">
             <div className="size-3 rotate-45 bg-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight">AUTOFLOW</span>
+          <span className="text-lg font-bold tracking-tight">DRIVERLEADS</span>
         </Link>
         <div className="hidden items-center gap-1 md:flex">
           <NavLink to="/"          label="Dashboard" pathname={pathname} />

@@ -11,7 +11,7 @@ import type { UserPerfil } from "@/hooks/useAuth";
 type TenantPerfil = Exclude<UserPerfil, "super_admin">;
 
 export const Route = createFileRoute("/usuarios")({
-  head: () => ({ meta: [{ title: "Usuários — AutoFlow" }] }),
+  head: () => ({ meta: [{ title: "Usuários — DriverLeads" }] }),
   component: UsuariosPage,
 });
 
