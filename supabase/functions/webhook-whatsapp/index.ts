@@ -46,8 +46,8 @@ Deno.serve(async (req: Request) => {
       false,
       ["sign"],
     );
-    const mac  = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-    const hex  = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const hex = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
     if (`sha256=${hex}` !== sigHeader) {
       return new Response("Forbidden", { status: 403 });
     }
@@ -64,9 +64,9 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
   }
 
-  const db = createClient(supabaseUrl, serviceKey);
-
+  const db      = createClient(supabaseUrl, serviceKey);
   const entries = (payload.entry as Array<Record<string, unknown>>) ?? [];
+
   for (const entry of entries) {
     const changes = (entry.changes as Array<Record<string, unknown>>) ?? [];
     for (const change of changes) {
@@ -85,17 +85,23 @@ Deno.serve(async (req: Request) => {
       const contact = contacts[0] ?? {};
       const profile = (contact.profile as Record<string, unknown>) ?? {};
 
-      const fromPhone  = String(msg.from ?? "");
-      const fromName   = String(profile.name ?? fromPhone);
-      const msgText    = (msg.type === "text") ? String((msg.text as Record<string, unknown>)?.body ?? "") : "";
-      const referral   = msg.referral as Record<string, unknown> | null;
-      const isCTWA     = referral?.source_type === "ad";
+      const fromPhone     = String(msg.from ?? "");
+      const fromName      = String(profile.name ?? fromPhone);
+      const msgText       = (msg.type === "text") ? String((msg.text as Record<string, unknown>)?.body ?? "") : "";
+      const referral      = msg.referral as Record<string, unknown> | null;
+      const isCTWA        = referral?.source_type === "ad";
       const sourcePlatform = isCTWA ? "meta_ctwa" : "whatsapp_organic";
 
+      // Atribuição de campanha via referral (Click-to-WhatsApp)
+      const adsCampaign  = isCTWA ? (referral?.ads_campaign as Record<string, unknown> | null) : null;
+      const campaignId   = String(adsCampaign?.id   ?? "");
+      const campaignName = String(adsCampaign?.name ?? "");
+      const adId         = isCTWA ? String(referral?.source_id ?? "") : "";
+
       // Dedup de evento
-      const msgId    = String(msg.id ?? "");
-      const hashBuf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`wa:${msgId}:${fromPhone}`));
-      const hashHex  = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const msgId   = String(msg.id ?? "");
+      const hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`wa:${msgId}:${fromPhone}`));
+      const hashHex = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 
       const { data: dupEvent } = await db
         .from("webhook_events_log")
@@ -105,7 +111,7 @@ Deno.serve(async (req: Request) => {
 
       if (dupEvent) continue;
 
-      // Identificar tenant pelo phone_number_id
+      // Identificar tenant pelo phone_number_id — NUNCA pelo payload
       const { data: integration } = await db
         .from("tenant_integrations")
         .select("id, tenant_id, status")
@@ -115,12 +121,12 @@ Deno.serve(async (req: Request) => {
 
       if (!integration || integration.status !== "ativo") {
         await db.from("webhook_events_log").insert({
-          tenant_id:    null,
-          platform:     sourcePlatform,
-          payload_hash: hashHex,
-          status:       "error",
+          tenant_id:     null,
+          platform:      sourcePlatform,
+          payload_hash:  hashHex,
+          status:        "error",
           error_message: `Nenhuma integração para phone_number_id=${phoneNumberId}`,
-          raw_payload:  payload,
+          raw_payload:   payload,
         });
         continue;
       }
@@ -128,7 +134,7 @@ Deno.serve(async (req: Request) => {
       const tenantId        = integration.tenant_id as string;
       const normalizedPhone = fromPhone.replace(/^\+?55/, "").replace(/\D/g, "") || null;
 
-      // Deduplicação de lead
+      // Deduplicação de lead (dentro do tenant apenas)
       let existingCustomerId: string | null = null;
       if (normalizedPhone) {
         const { data: dedup } = await db
@@ -161,28 +167,34 @@ Deno.serve(async (req: Request) => {
         const { data: customer, error: custErr } = await db
           .from("customers")
           .insert({
-            tenant_id:       tenantId,
-            name:            fromName,
-            phone:           fromPhone || null,
-            whatsapp:        fromPhone || null,
-            source:          "instagram",
-            source_platform: sourcePlatform,
-            source_campaign: isCTWA ? String(referral?.headline ?? "") : null,
-            source_raw:      { message: msg, contact, referral },
-            status:          "novo_lead",
-            notes:           msgText || null,
+            tenant_id:            tenantId,
+            name:                 fromName,
+            phone:                fromPhone || null,
+            whatsapp:             fromPhone || null,
+            source:               "instagram",
+            source_platform:      sourcePlatform,
+            source_campaign:      campaignName || campaignId || null,
+            source_campaign_id:   campaignId  || null,
+            source_campaign_name: campaignName || null,
+            source_adset_id:      null,
+            source_adset_name:    null,
+            source_ad_id:         adId || null,
+            source_ad_name:       null,
+            source_raw:           { message: msg, contact, referral },
+            status:               "novo_lead",
+            notes:                msgText || null,
           })
           .select("id")
           .single();
 
         if (custErr || !customer) {
           await db.from("webhook_events_log").insert({
-            tenant_id:    tenantId,
-            platform:     sourcePlatform,
-            payload_hash: hashHex,
-            status:       "error",
+            tenant_id:     tenantId,
+            platform:      sourcePlatform,
+            payload_hash:  hashHex,
+            status:        "error",
             error_message: custErr?.message ?? "Erro ao inserir customer",
-            raw_payload:  payload,
+            raw_payload:   payload,
           });
           continue;
         }
@@ -194,7 +206,21 @@ Deno.serve(async (req: Request) => {
           customer_id: customerId,
           tenant_id:   tenantId,
           type:        "whatsapp",
-          content:     msgText || `Mensagem WhatsApp recebida${isCTWA ? " via anúncio" : ""} em ${new Date().toLocaleString("pt-BR")}`,
+          content:     msgText || `Mensagem WhatsApp recebida${isCTWA ? " via anúncio" : ""}${campaignName ? ` (${campaignName})` : ""} em ${new Date().toLocaleString("pt-BR")}`,
+        });
+
+        // Notificação interna
+        await db.from("notifications").insert({
+          tenant_id: tenantId,
+          type:      "novo_lead",
+          title:     `Novo lead: ${fromName}`,
+          body:      fromPhone || null,
+          metadata:  {
+            customer_id:   customerId,
+            platform:      sourcePlatform,
+            campaign_name: campaignName || null,
+            ad_id:         adId         || null,
+          },
         });
 
         await db.from("lead_dedup_index").upsert({

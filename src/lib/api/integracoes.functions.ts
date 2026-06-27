@@ -1,13 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 const GRAPH_API = "https://graph.facebook.com/v19.0";
 
 // ============================================================
 // assertAdminLoja — garante que o usuário é admin_loja
 // ============================================================
-async function assertAdminLoja(supabase: Parameters<typeof requireSupabaseAuth>[0]["context"]["supabase"]) {
+async function assertAdminLoja(supabase: SupabaseClient<Database>) {
   const { data, error } = await supabase.rpc("get_meu_perfil");
   if (error || !data || !data[0]) throw new Error("Não autenticado");
   const { perfil, tenant_id } = data[0] as { perfil: string; tenant_id: string };
@@ -216,6 +218,36 @@ export const regenerarToken = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
     return { ok: true, token: newToken };
+  });
+
+// ============================================================
+// atualizarDadosLoja — atualiza nome/logo/cor do tenant
+// ============================================================
+export const atualizarDadosLoja = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      nome:         z.string().min(1, "Nome obrigatório").max(120),
+      logo_url:     z.string().url("URL inválida").nullable().optional(),
+      cor_primaria: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida").nullable().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { tenant_id } = await assertAdminLoja(context.supabase);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error } = await supabaseAdmin
+      .from("tenants")
+      .update({
+        nome:         data.nome,
+        logo_url:     data.logo_url     ?? null,
+        cor_primaria: data.cor_primaria ?? undefined,
+      })
+      .eq("id", tenant_id);
+
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ============================================================

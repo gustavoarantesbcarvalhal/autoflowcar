@@ -5,12 +5,24 @@
 // POST → notificação de lead (leadgen_id) → busca dados na Graph API → insere customer
 //
 // Env vars necessárias (Supabase Secrets):
-//   META_APP_SECRET         — app secret do Meta App (DriverLeads)
-//   META_WEBHOOK_VERIFY_TOKEN — token configurado no painel do Meta App
+//   META_APP_SECRET              — app secret do Meta App (DriverLeads)
+//   META_WEBHOOK_VERIFY_TOKEN    — token configurado no painel do Meta App
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const GRAPH_API = "https://graph.facebook.com/v19.0";
+
+async function fetchEntityName(entityId: string, accessToken: string): Promise<string> {
+  if (!entityId) return "";
+  try {
+    const r = await fetch(`${GRAPH_API}/${entityId}?fields=name&access_token=${accessToken}`);
+    if (!r.ok) return "";
+    const d = await r.json() as { name?: string };
+    return d.name ?? "";
+  } catch {
+    return "";
+  }
+}
 
 Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -20,9 +32,9 @@ Deno.serve(async (req: Request) => {
 
   // ── GET: verificação do endpoint pelo Meta ──────────────────
   if (req.method === "GET") {
-    const url    = new URL(req.url);
-    const mode   = url.searchParams.get("hub.mode");
-    const token  = url.searchParams.get("hub.verify_token");
+    const url       = new URL(req.url);
+    const mode      = url.searchParams.get("hub.mode");
+    const token     = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
 
     if (mode === "subscribe" && token === verifyToken && challenge) {
@@ -48,8 +60,8 @@ Deno.serve(async (req: Request) => {
       false,
       ["sign"],
     );
-    const mac  = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-    const hex  = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const mac      = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const hex      = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
     const expected = `sha256=${hex}`;
     if (sigHeader !== expected) {
       console.error("[webhook-meta] HMAC inválido");
@@ -64,9 +76,8 @@ Deno.serve(async (req: Request) => {
     return new Response("Bad request", { status: 400 });
   }
 
-  // Meta envia entry[] com changes[]
   const entries = (payload.entry as Array<Record<string, unknown>>) ?? [];
-  const db = createClient(supabaseUrl, serviceKey);
+  const db      = createClient(supabaseUrl, serviceKey);
 
   for (const entry of entries) {
     const pageId  = String(entry.id ?? "");
@@ -75,7 +86,7 @@ Deno.serve(async (req: Request) => {
     for (const change of changes) {
       if (change.field !== "leadgen") continue;
 
-      const value    = change.value as Record<string, unknown>;
+      const value     = change.value as Record<string, unknown>;
       const leadgenId = String(value.leadgen_id ?? "");
       if (!leadgenId || !pageId) continue;
 
@@ -89,9 +100,9 @@ Deno.serve(async (req: Request) => {
         .eq("payload_hash", hashHex)
         .maybeSingle();
 
-      if (dupEvent) continue; // já processado
+      if (dupEvent) continue;
 
-      // Identificar tenant pelo page_id
+      // Identificar tenant pelo page_id — NUNCA pelo payload
       const { data: integration } = await db
         .from("tenant_integrations")
         .select("id, tenant_id, fb_page_access_token, status")
@@ -101,12 +112,12 @@ Deno.serve(async (req: Request) => {
 
       if (!integration || integration.status !== "ativo") {
         await db.from("webhook_events_log").insert({
-          tenant_id:    null,
-          platform:     "meta_lead_ads",
-          payload_hash: hashHex,
-          status:       "error",
+          tenant_id:     null,
+          platform:      "meta_lead_ads",
+          payload_hash:  hashHex,
+          status:        "error",
           error_message: `Nenhuma integração ativa para page_id=${pageId}`,
-          raw_payload:  payload,
+          raw_payload:   payload,
         });
         continue;
       }
@@ -114,21 +125,23 @@ Deno.serve(async (req: Request) => {
       const tenantId    = integration.tenant_id as string;
       const accessToken = integration.fb_page_access_token as string;
 
-      // Buscar dados do lead na Graph API
+      // Buscar dados do lead + atribuição de campanha na Graph API
       let leadData: Record<string, unknown> | null = null;
       try {
-        const graphRes = await fetch(`${GRAPH_API}/${leadgenId}?access_token=${accessToken}&fields=field_data,created_time`);
+        const graphRes = await fetch(
+          `${GRAPH_API}/${leadgenId}?access_token=${accessToken}&fields=field_data,ad_id,adgroup_id,campaign_id,created_time`,
+        );
         if (!graphRes.ok) throw new Error(`Graph API ${graphRes.status}`);
         leadData = await graphRes.json() as Record<string, unknown>;
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Erro Graph API";
         await db.from("webhook_events_log").insert({
-          tenant_id:    tenantId,
-          platform:     "meta_lead_ads",
-          payload_hash: hashHex,
-          status:       "error",
+          tenant_id:     tenantId,
+          platform:      "meta_lead_ads",
+          payload_hash:  hashHex,
+          status:        "error",
           error_message: msg,
-          raw_payload:  payload,
+          raw_payload:   payload,
         });
         await db.from("tenant_integrations")
           .update({ status: "erro", last_error: msg, last_error_at: new Date().toISOString() })
@@ -136,31 +149,42 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // Extrair campos do lead
+      // Extrair campos do formulário
       const fields = (leadData.field_data as Array<{ name: string; values: string[] }>) ?? [];
       function getField(name: string): string {
         const f = fields.find((x) => x.name === name || x.name === name.replace("_", " "));
         return f?.values?.[0] ?? "";
       }
-      const name  = getField("full_name") || getField("first_name") + " " + getField("last_name");
+      const name  = (getField("full_name") || `${getField("first_name")} ${getField("last_name")}`).trim();
       const phone = getField("phone_number") || getField("phone");
       const email = getField("email");
 
-      if (!name.trim()) {
+      if (!name) {
         await db.from("webhook_events_log").insert({
-          tenant_id:    tenantId,
-          platform:     "meta_lead_ads",
-          payload_hash: hashHex,
-          status:       "error",
+          tenant_id:     tenantId,
+          platform:      "meta_lead_ads",
+          payload_hash:  hashHex,
+          status:        "error",
           error_message: "Lead sem nome",
-          raw_payload:  leadData,
+          raw_payload:   leadData,
         });
         continue;
       }
 
+      // Atribuição de campanha
+      const adId       = String(leadData.ad_id       ?? "");
+      const adsetId    = String(leadData.adgroup_id  ?? "");
+      const campaignId = String(leadData.campaign_id ?? "");
+
+      const [adName, adsetName, campaignName] = await Promise.all([
+        fetchEntityName(adId,       accessToken),
+        fetchEntityName(adsetId,    accessToken),
+        fetchEntityName(campaignId, accessToken),
+      ]);
+
       const normalizedPhone = phone.replace(/^\+?55/, "").replace(/\D/g, "") || null;
 
-      // Deduplicação de lead dentro do tenant
+      // Deduplicação de lead (dentro do tenant apenas)
       let existingCustomerId: string | null = null;
       if (normalizedPhone) {
         const { data: dedup } = await db
@@ -190,33 +214,37 @@ Deno.serve(async (req: Request) => {
           content:     `Lead recebido novamente via Meta Lead Ads (leadgen_id: ${leadgenId}) em ${new Date().toLocaleString("pt-BR")}`,
         });
       } else {
-        const source = fields.find((f) => f.name === "campaign_name") ? "facebook" : "facebook";
-
         const { data: customer, error: custErr } = await db
           .from("customers")
           .insert({
-            tenant_id:       tenantId,
-            name:            name.trim(),
-            phone:           phone || null,
-            whatsapp:        phone || null,
-            email:           email || null,
-            source,
-            source_platform: "meta_lead_ads",
-            source_campaign: getField("campaign_name") || getField("ad_name") || null,
-            source_raw:      leadData,
-            status:          "novo_lead",
+            tenant_id:             tenantId,
+            name,
+            phone:                 phone || null,
+            whatsapp:              phone || null,
+            email:                 email || null,
+            source:                "facebook",
+            source_platform:       "meta_lead_ads",
+            source_campaign:       campaignName || campaignId || null,
+            source_campaign_id:    campaignId   || null,
+            source_campaign_name:  campaignName || null,
+            source_adset_id:       adsetId      || null,
+            source_adset_name:     adsetName    || null,
+            source_ad_id:          adId         || null,
+            source_ad_name:        adName       || null,
+            source_raw:            leadData,
+            status:                "novo_lead",
           })
           .select("id")
           .single();
 
         if (custErr || !customer) {
           await db.from("webhook_events_log").insert({
-            tenant_id:    tenantId,
-            platform:     "meta_lead_ads",
-            payload_hash: hashHex,
-            status:       "error",
+            tenant_id:     tenantId,
+            platform:      "meta_lead_ads",
+            payload_hash:  hashHex,
+            status:        "error",
             error_message: custErr?.message ?? "Erro ao inserir customer",
-            raw_payload:  leadData,
+            raw_payload:   leadData,
           });
           continue;
         }
@@ -228,7 +256,22 @@ Deno.serve(async (req: Request) => {
           customer_id: customerId,
           tenant_id:   tenantId,
           type:        "nota",
-          content:     `Lead recebido via Meta Lead Ads (leadgen_id: ${leadgenId}) em ${new Date().toLocaleString("pt-BR")}`,
+          content:     `Lead recebido via Meta Lead Ads (leadgen_id: ${leadgenId})${campaignName ? ` — Campanha: ${campaignName}` : ""}${adName ? `, Anúncio: ${adName}` : ""} em ${new Date().toLocaleString("pt-BR")}`,
+        });
+
+        // Notificação interna
+        await db.from("notifications").insert({
+          tenant_id: tenantId,
+          type:      "novo_lead",
+          title:     `Novo lead: ${name}`,
+          body:      phone || email || null,
+          metadata:  {
+            customer_id:   customerId,
+            platform:      "meta_lead_ads",
+            campaign_name: campaignName || null,
+            adset_name:    adsetName    || null,
+            ad_name:       adName       || null,
+          },
         });
 
         await db.from("lead_dedup_index").upsert({

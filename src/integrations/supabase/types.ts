@@ -104,6 +104,15 @@ export type Database = {
           sale_value: number | null
           sold_at: string | null
           source: Database["public"]["Enums"]["lead_source"] | null
+          source_ad_id: string | null
+          source_ad_name: string | null
+          source_adset_id: string | null
+          source_adset_name: string | null
+          source_campaign: string | null
+          source_campaign_id: string | null
+          source_campaign_name: string | null
+          source_platform: string | null
+          source_raw: Json | null
           status: Database["public"]["Enums"]["lead_status"]
           status_changed_at: string | null
           tenant_id: string | null
@@ -135,6 +144,15 @@ export type Database = {
           sale_value?: number | null
           sold_at?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
+          source_ad_id?: string | null
+          source_ad_name?: string | null
+          source_adset_id?: string | null
+          source_adset_name?: string | null
+          source_campaign?: string | null
+          source_campaign_id?: string | null
+          source_campaign_name?: string | null
+          source_platform?: string | null
+          source_raw?: Json | null
           status?: Database["public"]["Enums"]["lead_status"]
           status_changed_at?: string | null
           tenant_id?: string | null
@@ -166,6 +184,15 @@ export type Database = {
           sale_value?: number | null
           sold_at?: string | null
           source?: Database["public"]["Enums"]["lead_source"] | null
+          source_ad_id?: string | null
+          source_ad_name?: string | null
+          source_adset_id?: string | null
+          source_adset_name?: string | null
+          source_campaign?: string | null
+          source_campaign_id?: string | null
+          source_campaign_name?: string | null
+          source_platform?: string | null
+          source_raw?: Json | null
           status?: Database["public"]["Enums"]["lead_status"]
           status_changed_at?: string | null
           tenant_id?: string | null
@@ -244,6 +271,89 @@ export type Database = {
           },
         ]
       }
+      lead_dedup_index: {
+        Row: {
+          created_at: string
+          customer_id: string
+          email_lower: string | null
+          id: string
+          normalized_phone: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          email_lower?: string | null
+          id?: string
+          normalized_phone?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          email_lower?: string | null
+          id?: string
+          normalized_phone?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_dedup_index_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_dedup_index_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          read: boolean
+          tenant_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          read?: boolean
+          tenant_id: string
+          title: string
+          type?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          read?: boolean
+          tenant_id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       super_admins: {
         Row: {
           created_at: string
@@ -294,6 +404,68 @@ export type Database = {
           tenant_nome?: string
         }
         Relationships: []
+      }
+      tenant_integrations: {
+        Row: {
+          config: Json | null
+          created_at: string
+          fb_page_access_token: string | null
+          fb_page_id: string | null
+          id: string
+          last_error: string | null
+          last_error_at: string | null
+          last_sync_at: string | null
+          platform: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          wa_api_token: string | null
+          waba_phone_number_id: string | null
+          webhook_verify_token: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          fb_page_access_token?: string | null
+          fb_page_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_sync_at?: string | null
+          platform: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          wa_api_token?: string | null
+          waba_phone_number_id?: string | null
+          webhook_verify_token?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          fb_page_access_token?: string | null
+          fb_page_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_sync_at?: string | null
+          platform?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          wa_api_token?: string | null
+          waba_phone_number_id?: string | null
+          webhook_verify_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_integrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
@@ -509,6 +681,60 @@ export type Database = {
           },
         ]
       }
+      webhook_events_log: {
+        Row: {
+          created_at: string
+          created_customer_id: string | null
+          error_message: string | null
+          id: string
+          payload_hash: string
+          platform: string
+          processed_at: string | null
+          raw_payload: Json | null
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          payload_hash: string
+          platform: string
+          processed_at?: string | null
+          raw_payload?: Json | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          payload_hash?: string
+          platform?: string
+          processed_at?: string | null
+          raw_payload?: Json | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_log_created_customer_id_fkey"
+            columns: ["created_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_events_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -541,6 +767,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_perfil"]
       }
       meu_tenant_id: { Args: never; Returns: string }
+      normalize_phone: { Args: { p: string }; Returns: string }
     }
     Enums: {
       appointment_type: "retorno" | "visita" | "test_drive"
