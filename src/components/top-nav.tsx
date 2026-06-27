@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Moon,
   Sun,
-  Search,
   Plus,
   LogOut,
   ChevronDown,
@@ -33,7 +32,7 @@ function NavLink({
       className={cn(
         "relative rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
         active
-          ? "bg-accent text-accent-foreground"
+          ? "bg-primary/10 text-primary font-semibold"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
@@ -47,11 +46,20 @@ function NavLink({
   );
 }
 
+function Logo() {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-7 w-9 items-center justify-center rounded-lg bg-primary shadow-sm">
+        <span className="text-[11px] font-black tracking-tight text-primary-foreground">DL</span>
+      </div>
+      <span className="text-[15px] font-extrabold tracking-tight">DriverLeads</span>
+    </div>
+  );
+}
+
 export function TopNav() {
   const { theme, toggle } = useTheme();
-  const navigate = useNavigate();
   const { nome, perfil, signOut } = useAuth();
-  const [q, setQ] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,12 +79,6 @@ export function TopNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  function submitSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!q.trim()) return;
-    navigate({ to: "/clientes", search: { q: q.trim() } as never });
-  }
-
   async function handleLogout() {
     setLoggingOut(true);
     try {
@@ -94,15 +96,12 @@ export function TopNav() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md">
       <div className="flex items-center gap-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid size-7 place-items-center rounded bg-primary">
-            <div className="size-3 rotate-45 bg-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">DRIVERLEADS</span>
+        <Link to="/">
+          <Logo />
         </Link>
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-0.5 md:flex">
           <NavLink to="/"          label="Dashboard" pathname={pathname} />
           <NavLink to="/clientes"  label="Clientes"  pathname={pathname} />
           <NavLink to="/followup"  label="Follow-up" pathname={pathname} badge={followUpBadge} />
@@ -114,41 +113,30 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-2">
-        <form onSubmit={submitSearch} className="relative hidden sm:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            type="text"
-            placeholder="Buscar cliente, telefone ou veículo…"
-            className="h-9 w-72 rounded-md border border-border bg-surface pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary/60"
-          />
-        </form>
         <Link
           to="/clientes/novo"
-          className="hidden h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
+          className="hidden h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:inline-flex"
         >
           <Plus className="size-4" /> Novo Lead
         </Link>
         <button
           onClick={toggle}
-          className="grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Alternar tema"
         >
           {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
-        {/* User menu */}
         {nome && (
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setUserMenuOpen((v) => !v)}
               className={cn(
-                "flex h-9 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors",
+                "flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors",
                 "hover:bg-muted hover:text-foreground",
                 userMenuOpen && "bg-muted text-foreground",
               )}
             >
-              <div className="grid size-6 place-items-center rounded-full bg-primary/20 text-primary">
+              <div className="grid size-6 place-items-center rounded-full bg-primary/15 text-primary">
                 <User className="size-3.5" />
               </div>
               <span className="hidden max-w-[120px] truncate md:block">{nome}</span>
@@ -156,9 +144,9 @@ export function TopNav() {
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-card shadow-lg">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-xl border border-border bg-card shadow-xl">
                 <div className="border-b border-border px-4 py-3">
-                  <p className="font-medium leading-none">{nome}</p>
+                  <p className="font-semibold leading-none">{nome}</p>
                   {perfil && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {perfilLabel[perfil] ?? perfil}
@@ -169,7 +157,7 @@ export function TopNav() {
                   <button
                     onClick={handleLogout}
                     disabled={loggingOut}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
                   >
                     {loggingOut ? (
                       <Loader2 className="size-4 animate-spin" />

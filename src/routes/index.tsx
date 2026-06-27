@@ -16,10 +16,6 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-// ---------------------------------------------------------------------------
-// Types & helpers
-// ---------------------------------------------------------------------------
-
 type Period = "hoje" | "semana" | "mes";
 
 function getPeriodStart(p: Period): Date {
@@ -38,9 +34,12 @@ const PERIOD_LABEL: Record<Period, string> = {
   hoje: "hoje", semana: "semana", mes: "mês",
 };
 
-// ---------------------------------------------------------------------------
-// Data fetching
-// ---------------------------------------------------------------------------
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
 
 async function fetchDashboard() {
   const [customers, appts] = await Promise.all([
@@ -60,7 +59,6 @@ async function fetchDashboard() {
   return { customers: customers.data ?? [], appts: appts.data ?? [] };
 }
 
-// Only fetched for gerente / admin
 async function fetchTeamData() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -73,10 +71,6 @@ async function fetchTeamData() {
   ]);
   return { profiles: profiles.data ?? [], activity: activity.data ?? [] };
 }
-
-// ---------------------------------------------------------------------------
-// Small components
-// ---------------------------------------------------------------------------
 
 function Kpi({
   label, value, hint, tone,
@@ -95,10 +89,10 @@ function Kpi({
   const cls = tone ? clsMap[tone] : "text-foreground";
 
   return (
-    <div className="bg-card p-4 md:p-5">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 text-2xl font-bold", cls)}>{value}</p>
-      {hint && <p className="mt-0.5 text-[10px] italic text-muted-foreground">{hint}</p>}
+    <div className="bg-card p-5 md:p-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className={cn("mt-1.5 text-3xl font-black tabular-nums", cls)}>{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -110,13 +104,13 @@ function PeriodFilter({ value, onChange }: { value: Period; onChange: (p: Period
     { id: "mes",    label: "Mês" },
   ];
   return (
-    <div className="flex overflow-hidden rounded-md border border-border">
+    <div className="flex overflow-hidden rounded-lg border border-border">
       {opts.map((o) => (
         <button
           key={o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "px-3 py-1.5 text-xs font-bold transition-colors",
+            "px-3 py-1.5 text-xs font-semibold transition-colors",
             value === o.id
               ? "bg-primary text-primary-foreground"
               : "bg-card text-muted-foreground hover:bg-muted",
@@ -129,12 +123,8 @@ function PeriodFilter({ value, onChange }: { value: Period; onChange: (p: Period
   );
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard
-// ---------------------------------------------------------------------------
-
 function Dashboard() {
-  const { perfil } = useAuth();
+  const { perfil, nome } = useAuth();
   const isVendedor = perfil === "vendedor";
   const isGerente  = perfil === "gerente" || perfil === "admin_loja" || perfil === "super_admin";
 
@@ -155,10 +145,8 @@ function Dashboard() {
   const allCustomers = data?.customers ?? [];
   const appts        = data?.appts ?? [];
 
-  // ── period-aware thresholds ──────────────────────────────────────────────
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
 
-  // ── KPIs ─────────────────────────────────────────────────────────────────
   const activeLeads = useMemo(
     () => allCustomers.filter((c) => !["venda_realizada", "perdido"].includes(c.status)),
     [allCustomers],
@@ -194,14 +182,6 @@ function Dashboard() {
     return total / comValor.length;
   }, [isGerente, allCustomers]);
 
-  const negotiating = useMemo(
-    () =>
-      activeLeads.filter((c) =>
-        ["em_atendimento", "em_negociacao", "visita"].includes(c.status),
-      ).length,
-    [activeLeads],
-  );
-
   const now = Date.now();
 
   const overdueFu = useMemo(
@@ -221,12 +201,10 @@ function Dashboard() {
     [activeLeads],
   );
 
-  // conversion rate snapshot
   const totalEver  = allCustomers.length;
   const totalSales = allCustomers.filter((c) => c.status === "venda_realizada").length;
   const convRate   = totalEver > 0 ? Math.round((totalSales / totalEver) * 100) : 0;
 
-  // pipeline counts (all leads, including closed — for funnel)
   const pipelineByStatus = useMemo(
     () =>
       STATUSES.map((s) => ({
@@ -237,7 +215,6 @@ function Dashboard() {
   );
   const activePipelineTotal = activeLeads.length;
 
-  // ── Vendor ranking (gerente only) ─────────────────────────────────────────
   const vendorRanking = useMemo(() => {
     if (!isGerente || !teamData?.profiles.length) return [];
     return teamData.profiles
@@ -261,7 +238,6 @@ function Dashboard() {
       .sort((a, b) => b.faturamento - a.faturamento || b.vendas - a.vendas || b.leads - a.leads);
   }, [isGerente, teamData, allCustomers]);
 
-  // ── Team activity today ───────────────────────────────────────────────────
   const teamActivity = useMemo(() => {
     if (!isGerente || !teamData) return [];
     const actMap = new Map<string, number>();
@@ -274,22 +250,17 @@ function Dashboard() {
       .sort((a, b) => b.count - a.count);
   }, [isGerente, teamData]);
 
-  const wappsHoje = useMemo(() => {
-    if (!isGerente || !teamData) return 0;
-    return teamData.activity.filter((i) => i.type === "whatsapp").length;
-  }, [isGerente, teamData]);
-
   const upcoming = appts.slice(0, 5);
+  const nomeDisplay = nome?.split(" ")[0] ?? "";
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-[1600px] p-4 md:p-6">
+    <div className="mx-auto max-w-[1600px] p-4 md:p-8">
 
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {isVendedor ? "Meu Dashboard" : "Dashboard Comercial"}
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            {nomeDisplay ? `${getGreeting()}, ${nomeDisplay}` : isVendedor ? "Meu Dashboard" : "Dashboard Comercial"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {isVendedor ? "Seus leads e compromissos" : "Visão geral do pipeline"}
@@ -299,15 +270,15 @@ function Dashboard() {
           <PeriodFilter value={period} onChange={setPeriod} />
           <Link
             to="/clientes/novo"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
           >
             <Plus className="size-4" /> Novo Lead
           </Link>
         </div>
       </div>
 
-      {/* KPI ribbon — 6 cards, period-aware */}
-      <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm sm:grid-cols-3 lg:grid-cols-6">
+      {/* 4 KPIs principais */}
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm lg:grid-cols-4">
         <Kpi
           label={isVendedor ? "Meus Leads Ativos" : "Leads Ativos"}
           value={isLoading ? "…" : activeLeads.length}
@@ -318,79 +289,74 @@ function Dashboard() {
           tone="primary"
         />
         <Kpi
-          label={isVendedor ? "Em Negociação" : "Negociando"}
-          value={isLoading ? "…" : negotiating}
-        />
-        <Kpi
           label={`Vendas — ${PERIOD_LABEL[period]}`}
           value={isLoading ? "…" : salesPeriod}
           tone="success"
-          hint={!isVendedor ? `${convRate}% conversão total` : undefined}
+          hint={!isVendedor && totalEver > 0 ? `${convRate}% conversão total` : undefined}
         />
         <Kpi
-          label="Follow-ups Atrasados"
+          label="Ações Urgentes"
           value={isLoading ? "…" : overdueFu}
           tone={overdueFu > 0 ? "danger" : undefined}
-        />
-        <Kpi
-          label="Sem Contato 7d+"
-          value={isLoading ? "…" : staleLeads.length}
-          tone={staleLeads.length > 0 ? "warning" : undefined}
+          hint="Follow-ups vencidos"
         />
       </div>
 
-      {/* Financial KPIs — gerente / admin only */}
+      {/* KPIs financeiros — gerente / admin */}
       {isGerente && (
-        <div className="mb-8 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-sm">
+        <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm lg:grid-cols-3">
           <Kpi
             label={`Faturamento — ${PERIOD_LABEL[period]}`}
             value={isLoading ? "…" : faturamentoPeriod > 0 ? formatPriceBRL(faturamentoPeriod) : "R$ 0"}
             tone="success"
           />
           <Kpi
-            label="Ticket Médio (com valor)"
+            label="Ticket Médio"
             value={isLoading ? "…" : ticketMedio > 0 ? formatPriceBRL(ticketMedio) : "—"}
             hint="Média das vendas com valor informado"
           />
           <Kpi
-            label="WhatsApps hoje"
-            value={isLoading ? "…" : wappsHoje}
-            hint="Enviados pela equipe hoje"
+            label="Taxa de Conversão"
+            value={isLoading ? "…" : `${convRate}%`}
+            hint={`${totalSales} de ${totalEver} leads convertidos`}
           />
         </div>
       )}
 
-      {/* Main 2-column layout */}
+      {/* Layout 2 colunas */}
       <div className="flex flex-col gap-6 lg:flex-row">
 
-        {/* Left — leads sem contato */}
+        {/* Leads sem contato */}
         <section className="flex-1">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
               <AlertTriangle className="size-4 text-amber-500" />
               {isVendedor ? "Meus leads sem contato" : "Sem contato há 7d+"}
             </h2>
             <Link
               to="/followup"
-              className="inline-flex items-center gap-1 text-xs font-bold uppercase text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
             >
               Follow-up <ArrowRight className="size-3" />
             </Link>
           </div>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
             {staleLeads.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                <TrendingUp className="mx-auto mb-2 size-6" />
+                <TrendingUp className="mx-auto mb-2 size-6 text-success" />
                 Nenhum lead parado. Continue assim.
               </div>
             ) : (
               <ul className="divide-y divide-border">
                 {staleLeads.slice(0, 6).map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-3 p-3 hover:bg-muted/50">
+                  <li key={c.id} className="flex items-center justify-between gap-3 p-3 hover:bg-muted/40">
                     <Link to="/clientes/$id" params={{ id: c.id }} className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{c.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {c.interest_brand} {c.interest_model} · {formatPriceBRL(c.price_max)} · {daysSince(c.last_contact_at)}d sem contato
+                        {c.interest_brand} {c.interest_model}
+                        {c.price_max ? ` · ${formatPriceBRL(c.price_max)}` : ""}
+                        {" · "}
+                        <span className="font-medium text-destructive">{daysSince(c.last_contact_at)}d sem contato</span>
                       </p>
                     </Link>
                     <WaButton
@@ -409,20 +375,20 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* Right sidebar */}
-        <aside className="w-full space-y-4 lg:w-80">
+        {/* Aside direito */}
+        <aside className="w-full space-y-4 lg:w-72">
 
-          {/* Próximos agendamentos */}
+          {/* Próximos compromissos */}
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
                 <Clock className="size-4 text-primary" /> Próximos
               </h2>
-              <Link to="/agenda" className="text-xs font-bold uppercase text-primary hover:underline">
+              <Link to="/agenda" className="text-xs font-semibold text-primary hover:underline">
                 Agenda
               </Link>
             </div>
-            <div className="space-y-2 rounded-xl border border-border bg-card p-4">
+            <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
               {upcoming.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum compromisso agendado.</p>
               ) : (
@@ -430,8 +396,8 @@ function Dashboard() {
                   const dt = new Date(a.scheduled_at);
                   const overdue = dt.getTime() < Date.now();
                   return (
-                    <div key={a.id} className={cn("border-l-2 py-1 pl-3", overdue ? "border-destructive" : "border-border")}>
-                      <p className={cn("font-mono text-[10px]", overdue ? "font-bold text-destructive" : "text-muted-foreground")}>
+                    <div key={a.id} className={cn("border-l-2 py-1 pl-3", overdue ? "border-destructive" : "border-primary/40")}>
+                      <p className={cn("font-mono text-xs", overdue ? "font-bold text-destructive" : "text-muted-foreground")}>
                         {dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       </p>
                       <p className="text-sm font-medium">{a.title || a.type}</p>
@@ -442,12 +408,12 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Funil do pipeline */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          {/* Funil */}
+          <div className="rounded-2xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-widest">Funil do Pipeline</p>
+              <p className="text-xs font-semibold">Funil do Pipeline</p>
               {!isVendedor && totalEver > 0 && (
-                <span className="rounded-full bg-emerald-600/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
                   {convRate}% conversão
                 </span>
               )}
@@ -484,16 +450,15 @@ function Dashboard() {
         </aside>
       </div>
 
-      {/* ── Gerente / Admin only ─────────────────────────────────────────── */}
+      {/* Gerente / Admin */}
       {isGerente && (
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
-          {/* Ranking de vendedores */}
           <section>
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <Users className="size-4 text-primary" /> Ranking de Vendedores
             </h2>
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
               {vendorRanking.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">
                   Nenhum lead atribuído a vendedores ainda.
@@ -502,18 +467,18 @@ function Dashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left">
-                      <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vendedor</th>
-                      <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Leads</th>
-                      <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vendas</th>
-                      <th className="px-2 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Faturamento</th>
-                      <th className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atrasados</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vendedor</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Leads</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vendas</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Faturamento</th>
+                      <th className="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atrasos</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {vendorRanking.map((v, i) => (
                       <tr key={v.id} className="hover:bg-muted/40">
                         <td className="px-4 py-2.5">
-                          <span className="mr-2 font-mono text-[10px] text-muted-foreground">#{i + 1}</span>
+                          <span className="mr-2 font-mono text-xs text-muted-foreground">#{i + 1}</span>
                           {v.nome}
                         </td>
                         <td className="px-2 py-2.5 text-center font-mono font-bold">{v.leads}</td>
@@ -544,12 +509,11 @@ function Dashboard() {
             </div>
           </section>
 
-          {/* Atividade de hoje */}
           <section>
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <Activity className="size-4 text-primary" /> Atividade Hoje
             </h2>
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className="rounded-2xl border border-border bg-card p-4">
               {teamActivity.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum registro de atividade ainda hoje.</p>
               ) : (

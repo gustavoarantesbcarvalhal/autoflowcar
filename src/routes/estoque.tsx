@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { VEHICLE_STATUSES, formatPriceBRL } from "@/lib/crm";
-import { Plus, Trash2, X, ImageIcon, Upload, Pencil } from "lucide-react";
+import { Plus, Trash2, X, ImageIcon, Upload, Pencil, Car, Search, Filter, SlidersHorizontal } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const FUEL_OPTIONS = ["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"];
 const TRANSMISSION_OPTIONS = ["Manual", "Automático", "Automatizado", "CVT"];
 
 const PRICE_RANGES = [
-  { label: "Todos", min: 0, max: Infinity },
+  { label: "Todos os preços", min: 0, max: Infinity },
   { label: "Até R$ 40k", min: 0, max: 40000 },
   { label: "Até R$ 60k", min: 0, max: 60000 },
   { label: "Até R$ 80k", min: 0, max: 80000 },
@@ -32,6 +32,12 @@ const MONTHS = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
 ];
+
+const STATUS_STYLE: Record<string, string> = {
+  disponivel: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  reservado:  "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  vendido:    "bg-primary/15 text-primary",
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,7 +70,6 @@ type VehiclePhoto = {
 function parseRawCurrency(raw: string): string {
   const s = raw.replace(/R\$\s?/g, "").trim();
   if (s.includes(",")) {
-    // Brazilian decimal format: "20.000,00" → remove thousand-dots → replace comma → round cents
     const normalized = s.replace(/\./g, "").replace(",", ".");
     const n = parseFloat(normalized);
     return isNaN(n) ? "" : String(Math.round(n));
@@ -91,7 +96,7 @@ function CurrencyInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onChange={(e) => onChange(parseRawCurrency(e.target.value))}
-        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
       />
       {preview && <p className="mt-0.5 text-[10px] font-medium text-primary">{preview}</p>}
     </div>
@@ -119,7 +124,7 @@ function KmInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
       />
       {preview && <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">{preview}</p>}
     </div>
@@ -140,6 +145,129 @@ async function fetchVehicles(): Promise<Vehicle[]> {
 }
 
 // ---------------------------------------------------------------------------
+// VehicleCard
+// ---------------------------------------------------------------------------
+
+function VehicleCard({
+  v,
+  onEdit,
+  onPhotos,
+  onDelete,
+  onStatusChange,
+}: {
+  v: Vehicle;
+  onEdit: () => void;
+  onPhotos: () => void;
+  onDelete: () => void;
+  onStatusChange: (status: string) => void;
+}) {
+  const statusLabel = VEHICLE_STATUSES.find((s) => s.id === v.status)?.label ?? v.status;
+  const price = v.price_listed ?? v.price;
+
+  return (
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+      {/* Photo */}
+      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+        {v.photo_main_url ? (
+          <img
+            src={v.photo_main_url}
+            alt={`${v.brand} ${v.model}`}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5">
+            <Car className="size-8 text-muted-foreground/30" />
+            <span className="text-[10px] text-muted-foreground/50">Sem foto</span>
+          </div>
+        )}
+        {/* Status badge overlay */}
+        <div className="absolute right-2 top-2">
+          <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide", STATUS_STYLE[v.status] ?? "bg-muted text-foreground")}>
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-1 flex-col p-3.5">
+        <p className="text-sm font-extrabold leading-tight">{v.brand} {v.model}</p>
+        {v.version && (
+          <p className="mt-0.5 text-xs font-medium text-muted-foreground">{v.version}</p>
+        )}
+
+        {/* Specs chips */}
+        <div className="mt-2 flex flex-wrap gap-1">
+          {v.year && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold">{v.year}</span>
+          )}
+          {v.mileage != null && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+              {v.mileage.toLocaleString("pt-BR")} km
+            </span>
+          )}
+          {v.fuel && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px]">{v.fuel}</span>
+          )}
+          {v.color && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px]">{v.color}</span>
+          )}
+        </div>
+
+        {/* Price */}
+        <div className="mt-3 flex items-end justify-between">
+          <div>
+            <p className="font-mono text-base font-extrabold tabular-nums">
+              {formatPriceBRL(price)}
+            </p>
+            {v.price_fipe && (
+              <p className="font-mono text-[10px] text-muted-foreground">
+                FIPE {formatPriceBRL(v.price_fipe)}
+              </p>
+            )}
+          </div>
+          {/* Quick status change */}
+          <select
+            value={v.status}
+            onChange={(e) => onStatusChange(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-7 rounded-lg border border-border bg-background px-1.5 text-[10px] font-bold outline-none focus:border-primary/60"
+          >
+            {VEHICLE_STATUSES.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-3 flex items-center gap-1 border-t border-border pt-3">
+          <button
+            onClick={onEdit}
+            title="Editar"
+            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Pencil className="size-3.5" /> Editar
+          </button>
+          <button
+            onClick={onPhotos}
+            title="Fotos"
+            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ImageIcon className="size-3.5" /> Fotos
+          </button>
+          <button
+            onClick={onDelete}
+            title="Excluir"
+            className="h-8 w-8 rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="mx-auto size-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // EstoquePage
 // ---------------------------------------------------------------------------
 
@@ -147,6 +275,7 @@ function EstoquePage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["vehicles"], queryFn: fetchVehicles });
   const [showNew, setShowNew] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [photoVehicle, setPhotoVehicle] = useState<Vehicle | null>(null);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const now = new Date();
@@ -217,18 +346,24 @@ function EstoquePage() {
     );
   }
 
+  const hasActiveFilters = filter.status !== "" || filter.range !== 0 || filter.month >= 0;
+
+  const selectCls = "h-9 rounded-lg border border-border bg-card px-2 text-sm outline-none focus:border-primary/60";
+
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
+
+      {/* Header */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Estoque de Veículos</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">Estoque de Veículos</h1>
           <p className="text-sm text-muted-foreground">
             {filtered.length} de {(data ?? []).length} veículos
           </p>
         </div>
         <button
           onClick={() => setShowNew((s) => !s)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
         >
           {showNew ? <X className="size-4" /> : <Plus className="size-4" />}
           {showNew ? "Cancelar" : "Adicionar Veículo"}
@@ -241,170 +376,124 @@ function EstoquePage() {
         />
       )}
 
-      {/* Filtros */}
-      <div className="mb-3 flex flex-wrap gap-2">
-        <input
-          value={filter.q}
-          onChange={(e) => setFilter({ ...filter, q: e.target.value })}
-          placeholder="Buscar marca, modelo, versão ou ano…"
-          className="h-9 min-w-48 flex-1 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-primary/60"
-        />
-        <select
-          value={filter.range}
-          onChange={(e) => setFilter({ ...filter, range: Number(e.target.value) })}
-          className="h-9 rounded-md border border-border bg-card px-2 text-sm"
-        >
-          {PRICE_RANGES.map((r, i) => <option key={i} value={i}>{r.label}</option>)}
-        </select>
-        <select
-          value={filter.status}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-          className="h-9 rounded-md border border-border bg-card px-2 text-sm"
-        >
-          <option value="">Todos os status</option>
-          {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
-        <select
-          value={filter.month}
-          onChange={(e) => setFilter({ ...filter, month: Number(e.target.value) })}
-          className="h-9 rounded-md border border-border bg-card px-2 text-sm"
-        >
-          <option value={-1}>Todos os meses</option>
-          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-        </select>
-        <select
-          value={filter.year}
-          onChange={(e) => setFilter({ ...filter, year: Number(e.target.value) })}
-          className="h-9 rounded-md border border-border bg-card px-2 text-sm"
-          disabled={filter.month < 0}
-        >
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-
-      {filter.month >= 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
-          <span className="font-bold uppercase tracking-wider text-muted-foreground">
-            {MONTHS[filter.month]} / {filter.year}
-          </span>
-          <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
-            Disponíveis: {monthCounts.disponivel}
-          </span>
-          <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-bold text-amber-600 dark:text-amber-400">
-            Reservados: {monthCounts.reservado}
-          </span>
-          <span className="rounded-md bg-primary/15 px-2 py-0.5 font-bold text-primary">
-            Vendidos: {monthCounts.vendido}
-          </span>
+      {/* Filter bar */}
+      <div className="mb-4 space-y-2">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={filter.q}
+              onChange={(e) => setFilter({ ...filter, q: e.target.value })}
+              placeholder="Buscar marca, modelo, versão ou ano…"
+              className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
+            />
+          </div>
           <button
-            onClick={() => setFilter({ ...filter, month: -1 })}
-            className="ml-auto rounded-md border border-border px-2 py-0.5 hover:bg-muted"
+            onClick={() => setShowFilters((s) => !s)}
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors",
+              showFilters || hasActiveFilters
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
           >
-            Limpar mês
+            <SlidersHorizontal className="size-4" />
+            Filtros
+            {hasActiveFilters && (
+              <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                {[filter.status !== "", filter.range !== 0, filter.month >= 0].filter(Boolean).length}
+              </span>
+            )}
           </button>
         </div>
-      )}
 
+        {showFilters && (
+          <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-card/60 p-3">
+            <select
+              value={filter.status}
+              onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+              className={selectCls}
+            >
+              <option value="">Todos os status</option>
+              {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+            <select
+              value={filter.range}
+              onChange={(e) => setFilter({ ...filter, range: Number(e.target.value) })}
+              className={selectCls}
+            >
+              {PRICE_RANGES.map((r, i) => <option key={i} value={i}>{r.label}</option>)}
+            </select>
+            <select
+              value={filter.month}
+              onChange={(e) => setFilter({ ...filter, month: Number(e.target.value) })}
+              className={selectCls}
+            >
+              <option value={-1}>Todos os meses</option>
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select
+              value={filter.year}
+              onChange={(e) => setFilter({ ...filter, year: Number(e.target.value) })}
+              disabled={filter.month < 0}
+              className={cn(selectCls, filter.month < 0 && "opacity-40")}
+            >
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+            {hasActiveFilters && (
+              <button
+                onClick={() => setFilter({ q: filter.q, range: 0, status: "", month: -1, year: now.getFullYear() })}
+                className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground hover:bg-muted"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+        )}
+
+        {filter.month >= 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs">
+            <Filter className="size-3.5 text-muted-foreground" />
+            <span className="font-bold uppercase tracking-wider text-muted-foreground">
+              {MONTHS[filter.month]} / {filter.year}
+            </span>
+            <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-700 dark:text-emerald-400">
+              Disponíveis: {monthCounts.disponivel}
+            </span>
+            <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-bold text-amber-700 dark:text-amber-400">
+              Reservados: {monthCounts.reservado}
+            </span>
+            <span className="rounded-md bg-primary/15 px-2 py-0.5 font-bold text-primary">
+              Vendidos: {monthCounts.vendido}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Grid */}
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-72 animate-pulse rounded-2xl border border-border bg-card" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border py-20 text-center">
+          <Car className="mx-auto mb-3 size-8 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">Nenhum veículo encontrado.</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/30 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              <tr>
-                <th className="w-14 p-3"></th>
-                <th className="p-3">Veículo</th>
-                <th className="p-3">Ano</th>
-                <th className="p-3 text-right">KM</th>
-                <th className="p-3 text-right">Valor</th>
-                <th className="p-3 text-right">FIPE</th>
-                <th className="p-3">Status</th>
-                <th className="p-3"></th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((v) => (
-                <tr key={v.id} className="hover:bg-muted/30">
-                  <td className="p-3">
-                    {v.photo_main_url ? (
-                      <img
-                        src={v.photo_main_url}
-                        alt=""
-                        className="size-10 rounded object-cover"
-                      />
-                    ) : (
-                      <div className="flex size-10 items-center justify-center rounded bg-muted">
-                        <ImageIcon className="size-4 text-muted-foreground/50" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <p className="font-bold">{v.brand} {v.model}</p>
-                    {(v.version || v.fuel || v.color) && (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {[v.version, v.fuel, v.color].filter(Boolean).join(" · ")}
-                      </p>
-                    )}
-                  </td>
-                  <td className="p-3 font-mono text-sm">{v.year ?? "—"}</td>
-                  <td className="p-3 text-right font-mono text-sm">
-                    {v.mileage ? v.mileage.toLocaleString("pt-BR") : "—"}
-                  </td>
-                  <td className="p-3 text-right font-mono font-bold">
-                    {formatPriceBRL(v.price_listed ?? v.price)}
-                  </td>
-                  <td className="p-3 text-right font-mono text-muted-foreground">
-                    {v.price_fipe ? formatPriceBRL(v.price_fipe) : "—"}
-                  </td>
-                  <td className="p-3">
-                    <select
-                      value={v.status}
-                      onChange={(e) => updateStatus.mutate({ id: v.id, status: e.target.value })}
-                      className="h-7 rounded border border-border bg-background px-1 text-xs"
-                    >
-                      {VEHICLE_STATUSES.map((s) => (
-                        <option key={s.id} value={s.id}>{s.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setEditVehicle(v)}
-                        title="Editar veículo"
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        <Pencil className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => setPhotoVehicle(v)}
-                        title="Gerenciar fotos"
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        <ImageIcon className="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <button
-                      onClick={() => { if (confirm("Excluir este veículo?")) remove.mutate(v.id); }}
-                      className="rounded p-1 text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                    Nenhum veículo encontrado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          {filtered.map((v) => (
+            <VehicleCard
+              key={v.id}
+              v={v}
+              onEdit={() => setEditVehicle(v)}
+              onPhotos={() => setPhotoVehicle(v)}
+              onDelete={() => { if (confirm("Excluir este veículo?")) remove.mutate(v.id); }}
+              onStatusChange={(status) => updateStatus.mutate({ id: v.id, status })}
+            />
+          ))}
         </div>
       )}
 
@@ -464,9 +553,7 @@ function vehicleToForm(v: Vehicle): VehicleEditForm {
 }
 
 function EditVehicleModal({
-  vehicle,
-  onClose,
-  onSaved,
+  vehicle, onClose, onSaved,
 }: {
   vehicle: Vehicle;
   onClose: () => void;
@@ -508,30 +595,25 @@ function EditVehicleModal({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const inp = "h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60";
-  const lbl = "mb-1 block text-[10px] font-bold uppercase text-muted-foreground";
+  const inp = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60";
+  const lbl = "mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card shadow-2xl">
-
-        {/* Header */}
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-5 py-4">
           <h2 className="text-base font-bold">
-            Editar — {vehicle.brand} {vehicle.model}
-            {vehicle.version ? ` ${vehicle.version}` : ""}
+            Editar — {vehicle.brand} {vehicle.model}{vehicle.version ? ` ${vehicle.version}` : ""}
           </h2>
-          <button onClick={onClose} className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted">
+          <button onClick={onClose} className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted">
             <X className="size-4" />
           </button>
         </div>
 
-        <div className="space-y-5 p-5">
-
-          {/* Informações básicas */}
+        <div className="space-y-6 p-5">
           <section>
             <p className={cn(lbl, "mb-3")}>Informações Básicas</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -545,7 +627,7 @@ function EditVehicleModal({
               </div>
               <div>
                 <label className={lbl}>Versão</label>
-                <input value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} placeholder="Ex: XEi" className={inp} />
+                <input value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} placeholder="XEi" className={inp} />
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -591,7 +673,6 @@ function EditVehicleModal({
             </div>
           </section>
 
-          {/* Informações comerciais */}
           <section>
             <p className={cn(lbl, "mb-3")}>Informações Comerciais</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -606,7 +687,6 @@ function EditVehicleModal({
             </div>
           </section>
 
-          {/* Oferta e Descrição */}
           <section>
             <p className={cn(lbl, "mb-3")}>Oferta / Descrição</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -617,7 +697,7 @@ function EditVehicleModal({
                   onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
                   rows={4}
                   placeholder={"Transferência grátis\nTanque cheio\nIPVA pago"}
-                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary/60"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
                 />
               </div>
               <div>
@@ -627,31 +707,25 @@ function EditVehicleModal({
                   onChange={(e) => setF({ ...f, description: e.target.value })}
                   rows={4}
                   placeholder={"Motor 1.4\nAr condicionado\nMultimídia"}
-                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary/60"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
                 />
               </div>
             </div>
           </section>
-
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-border bg-card px-5 py-4">
-          <button
-            onClick={onClose}
-            className="h-9 rounded-md border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
+          <button onClick={onClose} className="h-9 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted">
             Cancelar
           </button>
           <button
             onClick={() => save.mutate()}
             disabled={save.isPending}
-            className="h-9 rounded-md bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="h-9 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {save.isPending ? "Salvando…" : "Salvar alterações"}
           </button>
         </div>
-
       </div>
     </div>
   );
@@ -662,9 +736,7 @@ function EditVehicleModal({
 // ---------------------------------------------------------------------------
 
 function PhotoModal({
-  vehicle,
-  onClose,
-  onMainChanged,
+  vehicle, onClose, onMainChanged,
 }: {
   vehicle: Vehicle;
   onClose: () => void;
@@ -744,21 +816,20 @@ function PhotoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-10">
-      <div className="w-full max-w-xl rounded-xl border border-border bg-background shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-10 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="font-bold">
-            Fotos — {vehicle.brand} {vehicle.model}
-            {vehicle.version ? ` ${vehicle.version}` : ""}
+            Fotos — {vehicle.brand} {vehicle.model}{vehicle.version ? ` ${vehicle.version}` : ""}
           </h2>
-          <button onClick={onClose} className="rounded p-1 hover:bg-muted">
-            <X className="size-5" />
+          <button onClick={onClose} className="grid size-8 place-items-center rounded-lg hover:bg-muted">
+            <X className="size-4" />
           </button>
         </div>
-        <div className="p-4">
+        <div className="p-5">
           <label
             className={cn(
-              "inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-2 text-sm hover:bg-muted",
+              "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-sm font-medium hover:bg-muted",
               uploading && "pointer-events-none opacity-60",
             )}
           >
@@ -772,13 +843,13 @@ function PhotoModal({
           </label>
 
           {photos.length === 0 ? (
-            <p className="mt-4 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            <p className="mt-4 rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               Nenhuma foto cadastrada ainda
             </p>
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {photos.map((photo) => (
-                <div key={photo.id} className="relative overflow-hidden rounded-lg border border-border">
+                <div key={photo.id} className="relative overflow-hidden rounded-xl border border-border">
                   <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
                   <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-black/60 px-2 py-1.5">
                     {photo.is_main ? (
@@ -857,35 +928,29 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
     onError:   (e: Error) => toast.error(e.message),
   });
 
-  const inp = "h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary/60";
-  const lbl = "mb-1 block text-xs font-medium text-muted-foreground";
+  const inp = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60";
+  const lbl = "mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
 
   return (
-    <div className="mb-4 rounded-xl border border-border bg-card p-4">
-      <h3 className="mb-3 text-sm font-bold">Novo veículo</h3>
-      <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="space-y-3">
-
-        {/* Linha 1: Marca, Modelo, Versão */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="mb-5 rounded-2xl border border-border bg-card p-5">
+      <h3 className="mb-4 text-sm font-bold">Novo veículo</h3>
+      <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <label className={lbl}>Marca *</label>
-            <input placeholder="Ex: Toyota" value={f.brand}
-              onChange={(e) => setF({ ...f, brand: e.target.value })} className={inp} />
+            <input placeholder="Toyota" value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inp} />
           </div>
           <div className="sm:col-span-2">
             <label className={lbl}>Modelo *</label>
-            <input placeholder="Ex: Corolla" value={f.model}
-              onChange={(e) => setF({ ...f, model: e.target.value })} className={inp} />
+            <input placeholder="Corolla" value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inp} />
           </div>
           <div>
             <label className={lbl}>Versão</label>
-            <input placeholder="Ex: XEi" value={f.version}
-              onChange={(e) => setF({ ...f, version: e.target.value })} className={inp} />
+            <input placeholder="XEi" value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} className={inp} />
           </div>
         </div>
 
-        {/* Linha 2: Ano, Cor, KM, Status */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <label className={lbl}>Ano</label>
             <input
@@ -897,62 +962,49 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
           </div>
           <div>
             <label className={lbl}>Cor</label>
-            <input placeholder="Prata" value={f.color}
-              onChange={(e) => setF({ ...f, color: e.target.value })} className={inp} />
+            <input placeholder="Prata" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className={inp} />
           </div>
           <div>
             <label className={lbl}>KM</label>
-            <KmInput
-              placeholder="45000"
-              value={f.mileage}
-              onChange={(v) => setF({ ...f, mileage: v })}
-            />
+            <KmInput placeholder="45000" value={f.mileage} onChange={(v) => setF({ ...f, mileage: v })} />
           </div>
           <div>
             <label className={lbl}>Status</label>
-            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}
-              className={cn(inp, "cursor-pointer")}>
+            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inp, "cursor-pointer")}>
               {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </div>
         </div>
 
-        {/* Linha 3: Combustível, Câmbio */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={lbl}>Combustível</label>
-            <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })}
-              className={cn(inp, "cursor-pointer")}>
+            <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inp, "cursor-pointer")}>
               <option value="">— Selecionar —</option>
               {FUEL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
           <div>
             <label className={lbl}>Câmbio</label>
-            <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })}
-              className={cn(inp, "cursor-pointer")}>
+            <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inp, "cursor-pointer")}>
               <option value="">— Selecionar —</option>
               {TRANSMISSION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
         </div>
 
-        {/* Linha 4: Valores */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={lbl}>Valor anunciado</label>
-            <CurrencyInput placeholder="Ex: 59900" value={f.price_listed}
-              onChange={(v) => setF({ ...f, price_listed: v })} />
+            <CurrencyInput placeholder="59900" value={f.price_listed} onChange={(v) => setF({ ...f, price_listed: v })} />
           </div>
           <div>
             <label className={lbl}>Tabela FIPE</label>
-            <CurrencyInput placeholder="Ex: 58200" value={f.price_fipe}
-              onChange={(v) => setF({ ...f, price_fipe: v })} />
+            <CurrencyInput placeholder="58200" value={f.price_fipe} onChange={(v) => setF({ ...f, price_fipe: v })} />
           </div>
         </div>
 
-        {/* Linha 5: Oferta e Descrição */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={lbl}>Oferta / Bônus</label>
             <textarea
@@ -960,7 +1012,7 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
               onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
               rows={3}
               placeholder={"Transferência grátis\nTanque cheio\nIPVA pago"}
-              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary/60"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
             />
           </div>
           <div>
@@ -970,22 +1022,19 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
               onChange={(e) => setF({ ...f, description: e.target.value })}
               rows={3}
               placeholder={"Motor 1.4\nAr condicionado\nMultimídia"}
-              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary/60"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
             />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onDone}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted">
+            className="h-9 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted">
             Cancelar
           </button>
           <button
             type="submit" disabled={m.isPending}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground",
-              "hover:bg-primary/90 disabled:opacity-60",
-            )}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {m.isPending ? "Adicionando…" : "Adicionar"}
           </button>

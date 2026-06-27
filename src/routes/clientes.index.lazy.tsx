@@ -1,13 +1,14 @@
 import { createLazyFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUSES, type StatusId, sourceLabel, formatPriceBRL, daysSince } from "@/lib/crm";
+import { STATUSES, type StatusId, formatPriceBRL, daysSince } from "@/lib/crm";
 import { WaButton } from "@/components/wa-button";
 import { DndContext, useDraggable, useDroppable, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createLazyFileRoute("/clientes/")({
   component: ClientesPage,
@@ -30,9 +31,14 @@ async function fetchCustomers(): Promise<Customer[]> {
   return (data ?? []) as Customer[];
 }
 
+const COLLAPSED_BY_DEFAULT: StatusId[] = ["venda_realizada", "perdido"];
+
 function ClientesPage() {
   const { q: initialQ } = Route.useSearch() as { q: string };
   const [q, setQ] = useState(initialQ);
+  const [collapsed, setCollapsed] = useState<Set<StatusId>>(
+    () => new Set(COLLAPSED_BY_DEFAULT),
+  );
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["customers"], queryFn: fetchCustomers });
 
@@ -78,11 +84,20 @@ function ClientesPage() {
     if (cur && cur.status !== newStatus) mutateStatus.mutate({ id, status: newStatus });
   }
 
+  function toggleCollapse(statusId: StatusId) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(statusId)) next.delete(statusId);
+      else next.add(statusId);
+      return next;
+    });
+  }
+
   return (
-    <div className="mx-auto max-w-[1800px] p-4 md:p-6">
+    <div className="mx-auto max-w-[1800px] p-4 md:p-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Pipeline de Clientes</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">Pipeline de Clientes</h1>
           <p className="text-sm text-muted-foreground">Arraste os cards para mover entre etapas</p>
         </div>
         <div className="flex items-center gap-2">
@@ -92,27 +107,38 @@ function ClientesPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar cliente ou veículo…"
-              className="h-9 w-64 rounded-md border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
+              className="h-9 w-64 rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
             />
           </div>
-          <Link to="/clientes/novo" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+          <Link to="/clientes/novo" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
             <Plus className="size-4" /> Novo Lead
           </Link>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="flex gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-lg border border-border bg-card" />
+            <div key={i} className="h-40 w-72 shrink-0 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
         </div>
       ) : (
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {STATUSES.map((s) => (
-              <Column key={s.id} status={s.id} title={s.label} accent={s.accent} items={grouped[s.id] ?? []} />
-            ))}
+          <div className="relative">
+            <div className="flex gap-3 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {STATUSES.map((s) => (
+                <Column
+                  key={s.id}
+                  status={s.id}
+                  title={s.label}
+                  accent={s.accent}
+                  items={grouped[s.id] ?? []}
+                  isCollapsed={collapsed.has(s.id)}
+                  onToggleCollapse={() => toggleCollapse(s.id)}
+                />
+              ))}
+            </div>
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-14 bg-gradient-to-l from-surface to-transparent" />
           </div>
         </DndContext>
       )}
@@ -120,21 +146,67 @@ function ClientesPage() {
   );
 }
 
-function Column({ status, title, accent, items }: { status: StatusId; title: string; accent: string; items: Customer[] }) {
+function Column({
+  status, title, accent, items, isCollapsed, onToggleCollapse,
+}: {
+  status: StatusId;
+  title: string;
+  accent: string;
+  items: Customer[];
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+
+  if (isCollapsed) {
+    return (
+      <div
+        ref={setNodeRef}
+        className="flex w-14 shrink-0 cursor-pointer flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-4 transition-colors hover:border-primary/40 hover:bg-muted/30"
+        onClick={onToggleCollapse}
+        title={`Expandir ${title}`}
+      >
+        <span className={cn("size-2 rounded-full", accent)} />
+        <span className="font-mono text-xs font-bold text-muted-foreground">{items.length}</span>
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+          style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}
+        >
+          {title}
+        </span>
+        <ChevronRight className="size-3.5 text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <div ref={setNodeRef} className={`flex w-72 shrink-0 flex-col rounded-lg transition-colors ${isOver ? "bg-accent/40" : ""}`}>
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex w-72 shrink-0 flex-col rounded-2xl transition-colors",
+        isOver ? "bg-accent/30" : "",
+      )}
+    >
       <div className="mb-3 flex items-center justify-between px-1">
         <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-          <span className={`size-2 rounded-full ${accent}`} />
+          <span className={cn("size-2 rounded-full", accent)} />
           {title}
           <span className="ml-1 font-mono text-muted-foreground">{items.length}</span>
         </h3>
+        {COLLAPSED_BY_DEFAULT.includes(status as StatusId) && (
+          <button
+            onClick={onToggleCollapse}
+            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            title="Recolher coluna"
+          >
+            <ChevronRight className="size-3.5 rotate-180" />
+          </button>
+        )}
       </div>
-      <div className="flex flex-col gap-2 min-h-32">
+      <div className="flex min-h-32 flex-col gap-2">
         {items.map((c) => <Card key={c.id} c={c} accent={accent} />)}
         {items.length === 0 && (
-          <div className="grid place-items-center rounded-lg border border-dashed border-border p-6 text-[10px] uppercase tracking-tight text-muted-foreground">
+          <div className="grid place-items-center rounded-2xl border border-dashed border-border p-6 text-[10px] uppercase tracking-tight text-muted-foreground">
             Arraste aqui
           </div>
         )}
@@ -154,25 +226,21 @@ function Card({ c, accent }: { c: Customer; accent: string }) {
       style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.5 : 1 }}
       {...attributes} {...listeners}
       onClick={() => !isDragging && navigate({ to: "/clientes/$id", params: { id: c.id } })}
-      className="group animate-entry relative cursor-grab rounded-lg border border-border bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:cursor-grabbing"
+      className="group animate-entry relative cursor-grab rounded-2xl border border-border bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:cursor-grabbing"
     >
-      <div className={`absolute left-0 top-3 h-8 w-0.5 ${accent}`} />
-      <div className="mb-1 flex items-start justify-between">
-        <span className="font-mono text-[10px] text-muted-foreground">#{c.id.slice(0, 4)}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase">{sourceLabel(c.source)}</span>
-      </div>
+      <div className={cn("absolute left-0 top-3 h-8 w-0.5 rounded-full", accent)} />
       <h4 className="text-sm font-bold">{c.name}</h4>
-      <p className="text-xs text-muted-foreground">
+      <p className="mt-0.5 text-xs text-muted-foreground">
         {c.interest_brand || "—"} {c.interest_model || ""}
       </p>
       {stale && (
-        <div className="mt-2 flex items-center gap-1">
+        <div className="mt-2 flex items-center gap-1.5">
           <span className="size-1.5 animate-pulse rounded-full bg-destructive" />
-          <span className="text-[10px] font-medium text-destructive">Sem contato há {idle}d</span>
+          <span className="text-xs font-semibold text-destructive">Sem contato há {idle}d</span>
         </div>
       )}
       <div className="mt-3 flex items-center justify-between">
-        <span className="font-mono text-[11px] font-semibold">{formatPriceBRL(c.price_max ?? c.price_min)}</span>
+        <span className="font-mono text-xs font-bold">{formatPriceBRL(c.price_max ?? c.price_min)}</span>
         <WaButton
           customerId={c.id}
           nome={c.name}

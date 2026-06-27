@@ -11,6 +11,18 @@ export const Route = createFileRoute("/login")({
 
 type View = "login" | "forgot" | "reset_sent";
 
+function Logo() {
+  return (
+    <div className="mb-8 flex flex-col items-center gap-3">
+      <div className="flex h-14 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/40">
+        <span className="text-xl font-black tracking-tight text-primary-foreground">DL</span>
+      </div>
+      <span className="text-2xl font-extrabold tracking-tight text-white">DriverLeads</span>
+      <p className="text-sm text-white/50">CRM para Lojas de Veículos</p>
+    </div>
+  );
+}
+
 function LoginPage() {
   const { user, loading, tenantStatus, signIn, resetPassword, signOut } = useAuth();
 
@@ -37,7 +49,6 @@ function LoginPage() {
     setSubmitting(true);
     try {
       await signIn(email, password);
-      // Redirect happens via useEffect after auth state updates
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao fazer login";
       if (msg.includes("Invalid login credentials")) {
@@ -70,21 +81,19 @@ function LoginPage() {
 
   const isBlocked = user && !loading && tenantStatus === "bloqueado";
 
+  const inputCls = cn(
+    "h-11 w-full rounded-xl border border-border bg-muted/50 px-3 text-sm",
+    "outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/20",
+  );
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+    <div className="login-bg flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="mb-8 flex flex-col items-center gap-2">
-          <div className="grid size-10 place-items-center rounded-lg bg-primary">
-            <div className="size-4 rotate-45 bg-primary-foreground" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight">DRIVERLEADS</span>
-          <p className="text-sm text-muted-foreground">CRM para Lojas de Veículos</p>
-        </div>
+        <Logo />
 
         {/* Blocked state */}
         {isBlocked && (
-          <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+          <div className="mb-4 rounded-2xl border border-destructive/40 bg-destructive/10 p-4">
             <div className="flex items-start gap-3">
               <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
               <div>
@@ -97,7 +106,7 @@ function LoginPage() {
             <button
               type="button"
               onClick={() => signOut()}
-              className="mt-3 w-full rounded-md border border-destructive/40 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+              className="mt-3 w-full rounded-xl border border-destructive/40 py-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
             >
               Sair da conta
             </button>
@@ -106,9 +115,9 @@ function LoginPage() {
 
         {/* Reset sent */}
         {view === "reset_sent" && (
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-2xl bg-card p-7 shadow-2xl">
             <div className="flex flex-col items-center gap-3 text-center">
-              <CheckCircle className="size-10 text-green-500" />
+              <CheckCircle className="size-10 text-success" />
               <h2 className="text-lg font-semibold">E-mail enviado!</h2>
               <p className="text-sm text-muted-foreground">
                 Verifique sua caixa de entrada em <strong>{email}</strong> para redefinir sua senha.
@@ -127,12 +136,12 @@ function LoginPage() {
         {view === "login" && !isBlocked && (
           <form
             onSubmit={handleLogin}
-            className="rounded-xl border border-border bg-card p-6 shadow-sm"
+            className="rounded-2xl bg-card p-7 shadow-2xl"
           >
-            <h2 className="mb-5 text-lg font-semibold">Entrar na sua conta</h2>
+            <h2 className="mb-6 text-lg font-bold">Entrar na sua conta</h2>
 
             {error && (
-              <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+              <div className="mb-5 flex items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
                 <AlertCircle className="size-4 shrink-0" />
                 {error}
               </div>
@@ -140,7 +149,7 @@ function LoginPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">E-mail</label>
+                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">E-mail</label>
                 <input
                   type="email"
                   value={email}
@@ -148,15 +157,12 @@ function LoginPage() {
                   placeholder="seu@email.com"
                   required
                   autoComplete="email"
-                  className={cn(
-                    "h-10 w-full rounded-md border border-border bg-surface px-3 text-sm",
-                    "outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/20",
-                  )}
+                  className={inputCls}
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Senha</label>
+                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Senha</label>
                 <div className="relative">
                   <input
                     type={showPass ? "text" : "password"}
@@ -165,10 +171,7 @@ function LoginPage() {
                     placeholder="••••••••"
                     required
                     autoComplete="current-password"
-                    className={cn(
-                      "h-10 w-full rounded-md border border-border bg-surface pl-3 pr-10 text-sm",
-                      "outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/20",
-                    )}
+                    className={cn(inputCls, "pr-11")}
                   />
                   <button
                     type="button"
@@ -182,27 +185,27 @@ function LoginPage() {
             </div>
 
             <button
+              type="submit"
+              disabled={submitting}
+              className={cn(
+                "mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl",
+                "bg-primary text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30",
+                "transition-all hover:bg-primary/90 hover:shadow-primary/40 disabled:cursor-not-allowed disabled:opacity-60",
+              )}
+            >
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {submitting ? "Entrando…" : "Entrar"}
+            </button>
+
+            <button
               type="button"
               onClick={() => {
                 setView("forgot");
                 setError(null);
               }}
-              className="mt-2 block text-xs text-muted-foreground underline-offset-4 hover:underline"
+              className="mt-4 block w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
             >
               Esqueci minha senha
-            </button>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className={cn(
-                "mt-5 flex h-10 w-full items-center justify-center gap-2 rounded-md",
-                "bg-primary text-sm font-semibold text-primary-foreground",
-                "transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60",
-              )}
-            >
-              {submitting && <Loader2 className="size-4 animate-spin" />}
-              {submitting ? "Entrando…" : "Entrar"}
             </button>
           </form>
         )}
@@ -211,22 +214,22 @@ function LoginPage() {
         {view === "forgot" && (
           <form
             onSubmit={handleForgot}
-            className="rounded-xl border border-border bg-card p-6 shadow-sm"
+            className="rounded-2xl bg-card p-7 shadow-2xl"
           >
-            <h2 className="mb-1 text-lg font-semibold">Recuperar senha</h2>
-            <p className="mb-5 text-sm text-muted-foreground">
+            <h2 className="mb-1 text-lg font-bold">Recuperar senha</h2>
+            <p className="mb-6 text-sm text-muted-foreground">
               Enviaremos um link para redefinir sua senha.
             </p>
 
             {error && (
-              <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
                 <AlertCircle className="size-4 shrink-0" />
                 {error}
               </div>
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium">E-mail</label>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">E-mail</label>
               <input
                 type="email"
                 value={email}
@@ -234,10 +237,7 @@ function LoginPage() {
                 placeholder="seu@email.com"
                 required
                 autoComplete="email"
-                className={cn(
-                  "h-10 w-full rounded-md border border-border bg-surface px-3 text-sm",
-                  "outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/20",
-                )}
+                className={inputCls}
               />
             </div>
 
@@ -245,9 +245,9 @@ function LoginPage() {
               type="submit"
               disabled={submitting}
               className={cn(
-                "mt-5 flex h-10 w-full items-center justify-center gap-2 rounded-md",
-                "bg-primary text-sm font-semibold text-primary-foreground",
-                "transition-colors hover:bg-primary/90 disabled:opacity-60",
+                "mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl",
+                "bg-primary text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30",
+                "transition-all hover:bg-primary/90 disabled:opacity-60",
               )}
             >
               {submitting && <Loader2 className="size-4 animate-spin" />}
@@ -260,7 +260,7 @@ function LoginPage() {
                 setView("login");
                 setError(null);
               }}
-              className="mt-3 block w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+              className="mt-4 block w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
             >
               Voltar ao login
             </button>

@@ -2,12 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FOLLOW_UP_TYPES, APPOINTMENT_TYPES, followUpTypeLabel, daysSince, statusLabel } from "@/lib/crm";
+import { FOLLOW_UP_TYPES, followUpTypeLabel, daysSince, statusLabel } from "@/lib/crm";
 import { WaButton } from "@/components/wa-button";
 import {
   CheckCircle2, Clock, RotateCcw,
-  ChevronDown, ChevronUp, AlertCircle, CalendarClock, Inbox, User,
-  Star, AlertTriangle, Calendar, Filter,
+  AlertCircle, CalendarClock, Inbox, User,
+  Star, AlertTriangle, Filter,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -17,10 +17,6 @@ export const Route = createFileRoute("/followup")({
   head: () => ({ meta: [{ title: "Follow-up — DriverLeads" }] }),
   component: FollowupPage,
 });
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 type FollowUpLead = {
   id: string;
@@ -42,30 +38,10 @@ type FollowUpLead = {
   interaction_count: number;
 };
 
-type TodayAppt = {
-  id: string;
-  type: string;
-  scheduled_at: string;
-  title: string | null;
-  done: boolean;
-  customer_id: string | null;
-  customer_name: string | null;
-};
-
-type HistoricoItem = {
-  id: string;
-  type: string;
-  content: string | null;
-  created_at: string;
-  user_id: string | null;
-  user_nome: string | null;
-};
-
 type Panel =
   | { kind: "none" }
   | { kind: "concluir"; leadId: string }
-  | { kind: "reagendar"; leadId: string }
-  | { kind: "historico"; leadId: string };
+  | { kind: "reagendar"; leadId: string };
 
 type ConcluirArgs  = { leadId: string; tipo: string; nota: string };
 type ReagendarArgs = { leadId: string; novaData: string; tipo: string; nota: string };
@@ -79,10 +55,6 @@ type SharedProps = {
   isGerente: boolean;
 };
 
-// ---------------------------------------------------------------------------
-// Data fetching
-// ---------------------------------------------------------------------------
-
 async function fetchFollowUps(): Promise<FollowUpLead[]> {
   const { data, error } = await supabase
     .from("customers")
@@ -95,7 +67,6 @@ async function fetchFollowUps(): Promise<FollowUpLead[]> {
   const rows = data ?? [];
   if (rows.length === 0) return [];
 
-  // Enrich: responsável names
   const responsavelIds = [
     ...new Set(rows.map((c) => c.responsavel_id).filter((id): id is string => id !== null)),
   ];
@@ -108,7 +79,6 @@ async function fetchFollowUps(): Promise<FollowUpLead[]> {
     for (const p of profiles ?? []) profileMap.set(p.id, p.nome);
   }
 
-  // Enrich: interaction counts
   const customerIds = rows.map((c) => c.id);
   const countMap = new Map<string, number>();
   if (customerIds.length > 0) {
@@ -142,69 +112,6 @@ async function fetchFollowUps(): Promise<FollowUpLead[]> {
   }));
 }
 
-async function fetchTodayAppts(): Promise<TodayAppt[]> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(todayStart.getTime() + 86_400_000);
-
-  const { data } = await supabase
-    .from("appointments")
-    .select("id,type,scheduled_at,title,done,customer_id")
-    .gte("scheduled_at", todayStart.toISOString())
-    .lt("scheduled_at", todayEnd.toISOString())
-    .order("scheduled_at", { ascending: true });
-
-  if (!data || data.length === 0) return [];
-
-  const cids = [...new Set(data.map((a) => a.customer_id).filter(Boolean) as string[])];
-  const nameMap = new Map<string, string>();
-  if (cids.length > 0) {
-    const { data: customers } = await supabase
-      .from("customers")
-      .select("id,name")
-      .in("id", cids);
-    for (const c of customers ?? []) nameMap.set(c.id, c.name);
-  }
-
-  return data.map((a) => ({
-    ...a,
-    customer_name: a.customer_id ? (nameMap.get(a.customer_id) ?? null) : null,
-  }));
-}
-
-async function fetchHistorico(customerId: string): Promise<HistoricoItem[]> {
-  const { data: ints, error } = await supabase
-    .from("interactions")
-    .select("id,type,content,created_at,user_id")
-    .eq("customer_id", customerId)
-    .order("created_at", { ascending: false })
-    .limit(20);
-  if (error) throw error;
-  const interactions = ints ?? [];
-  if (interactions.length === 0) return [];
-
-  const userIds = [
-    ...new Set(interactions.map((i) => i.user_id).filter(Boolean) as string[]),
-  ];
-  const profileMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("user_profiles")
-      .select("id,nome")
-      .in("id", userIds);
-    for (const p of profiles ?? []) profileMap.set(p.id, p.nome as string);
-  }
-
-  return interactions.map((i) => ({
-    ...i,
-    user_nome: i.user_id ? (profileMap.get(i.user_id) ?? null) : null,
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// Lead grouping
-// ---------------------------------------------------------------------------
-
 const STUCK_DAYS = 14;
 
 function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
@@ -230,7 +137,6 @@ function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
       if      (t < todayStart) vencidos.push(lead);
       else if (t < todayEnd)   hoje.push(lead);
       else if (t < weekEnd)    proximos7.push(lead);
-      // next_return_at > 7 dias: ainda não urgente
     } else {
       const refDate = lead.status_changed_at ?? lead.created_at;
       const refTime = new Date(refDate).getTime();
@@ -246,22 +152,12 @@ function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
   return { vencidos, hoje, proximos7, semData, parados };
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 function FollowupPage() {
   const { perfil } = useAuth();
   const isGerente = perfil === "gerente" || perfil === "admin_loja" || perfil === "super_admin";
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({ queryKey: ["followup"], queryFn: fetchFollowUps });
-
-  const { data: todayAppts = [] } = useQuery({
-    queryKey: ["agenda-today"],
-    queryFn: fetchTodayAppts,
-    staleTime: 60_000,
-  });
 
   const [panel, setPanel] = useState<Panel>({ kind: "none" });
   const [filterVendedor, setFilterVendedor] = useState("");
@@ -285,8 +181,8 @@ function FollowupPage() {
   );
 
   const { vencidos, hoje, proximos7, semData, parados } = groups;
-  const urgentes  = vencidos.length + hoje.length;
-  const totalFU   = urgentes + proximos7.length + semData.length + parados.length;
+  const urgentes = vencidos.length + hoje.length;
+  const totalFU  = urgentes + proximos7.length + semData.length + parados.length;
 
   const concluir = useMutation({
     mutationFn: async ({ leadId, tipo, nota }: ConcluirArgs) => {
@@ -347,11 +243,11 @@ function FollowupPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl p-4 md:p-6">
+    <div className="mx-auto max-w-4xl p-4 md:p-8">
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Central de Follow-up</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">Central de Follow-up</h1>
           <p className="text-sm text-muted-foreground">
             {isLoading
               ? "Carregando…"
@@ -364,7 +260,7 @@ function FollowupPage() {
             <select
               value={filterVendedor}
               onChange={(e) => setFilterVendedor(e.target.value)}
-              className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+              className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
             >
               <option value="">Toda a equipe</option>
               {vendedorOptions.map((v) => (
@@ -378,112 +274,33 @@ function FollowupPage() {
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl border border-border bg-card" />
+            <div key={i} className="h-24 animate-pulse rounded-2xl border border-border bg-card" />
           ))}
         </div>
-      ) : totalFU === 0 && todayAppts.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border py-16 text-center">
-          <CheckCircle2 className="mx-auto mb-3 size-10 text-emerald-500" />
-          <p className="text-sm font-medium">Nenhum lead para acompanhar</p>
+      ) : totalFU === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border py-20 text-center">
+          <CheckCircle2 className="mx-auto mb-3 size-10 text-success" />
+          <p className="text-sm font-semibold">Nenhum lead para acompanhar</p>
           <p className="mt-1 text-xs text-muted-foreground">Todos os leads ativos estão em dia.</p>
         </div>
       ) : (
         <div className="space-y-8">
-
-          {/* Mini-agenda do dia */}
-          {todayAppts.length > 0 && (
-            <section>
-              <div className="mb-3 flex items-center gap-2">
-                <Calendar className="size-4 text-primary" />
-                <h2 className="text-xs font-bold uppercase tracking-widest text-primary">
-                  Agenda de hoje
-                </h2>
-                <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold">
-                  {todayAppts.length}
-                </span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {todayAppts.map((a) => {
-                  const dt = new Date(a.scheduled_at);
-                  const isOverdue = !a.done && dt.getTime() < Date.now();
-                  return (
-                    <div
-                      key={a.id}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg border bg-card px-3 py-2",
-                        a.done
-                          ? "border-border opacity-50"
-                          : isOverdue
-                            ? "border-destructive/50"
-                            : "border-border",
-                      )}
-                    >
-                      <div className={cn(
-                        "h-8 w-1 shrink-0 rounded-full",
-                        a.done ? "bg-muted" : isOverdue ? "bg-destructive" : "bg-primary",
-                      )} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">
-                          {a.title || APPOINTMENT_TYPES.find((t) => t.id === a.type)?.label || a.type}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <span className="font-mono">
-                            {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                          {a.customer_name && (
-                            <>
-                              <span>·</span>
-                              {a.customer_id ? (
-                                <Link
-                                  to="/clientes/$id"
-                                  params={{ id: a.customer_id }}
-                                  className="text-primary hover:underline"
-                                >
-                                  {a.customer_name}
-                                </Link>
-                              ) : (
-                                <span>{a.customer_name}</span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {a.done && (
-                        <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
+          <Section title="Vencidos"           tone="danger"  icon={AlertCircle}   leads={vencidos}  {...shared} />
+          <Section title="Hoje"               tone="warning" icon={Clock}         leads={hoje}      {...shared} />
+          <Section title="Próximos 7 dias"    tone="info"    icon={CalendarClock} leads={proximos7} {...shared} />
           <Section
-            title="Vencidos" tone="danger" icon={AlertCircle}
-            leads={vencidos} emptyText="Nenhum follow-up atrasado."
-            {...shared}
-          />
-          <Section
-            title="Hoje" tone="warning" icon={Clock}
-            leads={hoje} emptyText="Nenhuma ação agendada para hoje."
-            {...shared}
-          />
-          <Section
-            title="Próximos 7 dias" tone="info" icon={CalendarClock}
-            leads={proximos7} emptyText="Agenda limpa para a semana."
-            {...shared}
-          />
-          <Section
-            title="Parados em etapa" tone="stuck" icon={AlertTriangle}
+            title="Parados em etapa"
+            tone="stuck"
+            icon={AlertTriangle}
             leads={parados}
-            emptyText="Nenhum lead parado em etapa."
             subtitle={`sem movimentação há ${STUCK_DAYS}+ dias`}
             {...shared}
           />
           <Section
-            title="Sem data programada" tone="muted" icon={Inbox}
+            title="Sem data programada"
+            tone="muted"
+            icon={Inbox}
             leads={semData}
-            emptyText="Todos os leads ativos têm próxima ação programada."
             subtitle="sem contato há 7+ dias ou nunca contatados"
             {...shared}
           />
@@ -492,10 +309,6 @@ function FollowupPage() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Section
-// ---------------------------------------------------------------------------
 
 const TONE_CLS = {
   danger:  "text-destructive",
@@ -506,58 +319,48 @@ const TONE_CLS = {
 } as const;
 
 function Section({
-  title, tone, icon: Icon, leads, emptyText, subtitle,
+  title, tone, icon: Icon, leads, subtitle,
   panel, setPanel, onConcluir, onReagendar, isPending, isGerente,
 }: {
   title: string;
   tone: keyof typeof TONE_CLS;
   icon: React.ElementType;
   leads: FollowUpLead[];
-  emptyText: string;
   subtitle?: string;
 } & SharedProps) {
+  if (leads.length === 0) return null;
+
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Icon className={cn("size-4", TONE_CLS[tone])} />
-        <h2 className={cn("text-xs font-bold uppercase tracking-widest", TONE_CLS[tone])}>
+        <h2 className={cn("text-sm font-semibold", TONE_CLS[tone])}>
           {title}
         </h2>
-        <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold">
+        <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-xs font-bold">
           {leads.length}
         </span>
         {subtitle && (
-          <span className="text-[10px] text-muted-foreground">— {subtitle}</span>
+          <span className="text-xs text-muted-foreground">— {subtitle}</span>
         )}
       </div>
-
-      {leads.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border py-5 text-center text-sm text-muted-foreground">
-          {emptyText}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {leads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              panel={panel}
-              setPanel={setPanel}
-              onConcluir={onConcluir}
-              onReagendar={onReagendar}
-              isPending={isPending}
-              isGerente={isGerente}
-            />
-          ))}
-        </div>
-      )}
+      <div className="space-y-2">
+        {leads.map((lead) => (
+          <LeadCard
+            key={lead.id}
+            lead={lead}
+            panel={panel}
+            setPanel={setPanel}
+            onConcluir={onConcluir}
+            onReagendar={onReagendar}
+            isPending={isPending}
+            isGerente={isGerente}
+          />
+        ))}
+      </div>
     </section>
   );
 }
-
-// ---------------------------------------------------------------------------
-// LeadCard
-// ---------------------------------------------------------------------------
 
 function LeadCard({
   lead, panel, setPanel, onConcluir, onReagendar, isPending, isGerente,
@@ -569,7 +372,7 @@ function LeadCard({
       ? panel.kind
       : null;
 
-  function togglePanel(kind: Exclude<Panel["kind"], "none">) {
+  function togglePanel(kind: "concluir" | "reagendar") {
     setPanel(myKind === kind ? { kind: "none" } : ({ kind, leadId: lead.id } as Panel));
   }
 
@@ -596,7 +399,7 @@ function LeadCard({
 
   return (
     <div className={cn(
-      "overflow-hidden rounded-xl border bg-card",
+      "overflow-hidden rounded-2xl border bg-card",
       lead.is_priority
         ? "border-amber-400/60 dark:border-amber-500/40"
         : "border-border",
@@ -613,7 +416,7 @@ function LeadCard({
               className="shrink-0 transition-transform hover:scale-110 disabled:opacity-50"
             >
               <Star className={cn(
-                "size-3.5",
+                "size-4",
                 lead.is_priority
                   ? "fill-amber-400 text-amber-400"
                   : "text-muted-foreground/40 hover:text-amber-400",
@@ -626,43 +429,43 @@ function LeadCard({
             >
               {lead.name}
             </Link>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-semibold">
               {statusLabel(lead.status)}
             </span>
             {lead.interaction_count > 0 && (
-              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
-                {lead.interaction_count} contato{lead.interaction_count !== 1 ? "s" : ""}
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-primary">
+                {lead.interaction_count}✕
               </span>
             )}
           </div>
 
           {/* Vehicle + contact info */}
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {[lead.interest_brand, lead.interest_model].filter(Boolean).join(" ") || "Interesse não definido"}
             {idle !== null ? (
               <>
                 {" · "}
-                <span className={idle >= 7 ? "font-medium text-destructive" : ""}>
+                <span className={idle >= 7 ? "font-semibold text-destructive" : ""}>
                   {idle}d sem contato
                 </span>
               </>
             ) : (
-              <span className="font-medium text-destructive"> · nunca contatado</span>
+              <span className="font-semibold text-destructive"> · nunca contatado</span>
             )}
           </p>
 
-          {/* Responsável (gerente only) */}
+          {/* Responsável (gerente) */}
           {isGerente && lead.responsavel_nome && (
-            <p className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <User className="size-2.5" /> {lead.responsavel_nome}
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <User className="size-3" /> {lead.responsavel_nome}
             </p>
           )}
 
           {/* Next action */}
           {(lead.next_action_type || nextDate) && (
-            <div className="mt-1 flex items-center gap-1.5">
-              <CalendarClock className={cn("size-3", isOverdue ? "text-destructive" : "text-muted-foreground")} />
-              <span className={cn("text-xs", isOverdue ? "font-medium text-destructive" : "text-muted-foreground")}>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <CalendarClock className={cn("size-3.5", isOverdue ? "text-destructive" : "text-muted-foreground")} />
+              <span className={cn("text-xs", isOverdue ? "font-semibold text-destructive" : "text-muted-foreground")}>
                 {lead.next_action_type ? followUpTypeLabel(lead.next_action_type) : "Retorno"}
                 {nextDate && (
                   <>
@@ -675,16 +478,16 @@ function LeadCard({
                 )}
               </span>
               {lead.next_action_notes && (
-                <span className="truncate text-[10px] text-muted-foreground">
+                <span className="truncate text-xs text-muted-foreground">
                   · {lead.next_action_notes}
                 </span>
               )}
             </div>
           )}
 
-          {/* Parado em etapa warning */}
+          {/* Parado em etapa */}
           {!lead.next_return_at && stuckDays !== null && stuckDays >= STUCK_DAYS && (
-            <p className="mt-1 text-[10px] font-medium text-orange-500 dark:text-orange-400">
+            <p className="mt-1 text-xs font-semibold text-orange-500 dark:text-orange-400">
               Parado em {statusLabel(lead.status)} há {stuckDays}d
             </p>
           )}
@@ -704,40 +507,24 @@ function LeadCard({
           <button
             onClick={() => togglePanel("concluir")}
             className={cn(
-              "inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-bold transition-colors",
+              "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors",
               myKind === "concluir"
-                ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-400"
+                ? "bg-success/15 text-success"
                 : "border border-border hover:bg-muted",
             )}
           >
-            <CheckCircle2 className="size-3" /> Concluir
+            <CheckCircle2 className="size-3.5" /> Concluir
           </button>
           <button
             onClick={() => togglePanel("reagendar")}
             className={cn(
-              "inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-bold transition-colors",
+              "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors",
               myKind === "reagendar"
                 ? "bg-primary/10 text-primary"
                 : "border border-border hover:bg-muted",
             )}
           >
-            <RotateCcw className="size-3" /> Reagendar
-          </button>
-          <button
-            onClick={() => togglePanel("historico")}
-            className={cn(
-              "inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-bold transition-colors",
-              myKind === "historico"
-                ? "bg-accent text-accent-foreground"
-                : "border border-border hover:bg-muted",
-            )}
-          >
-            {myKind === "historico" ? (
-              <ChevronUp className="size-3" />
-            ) : (
-              <ChevronDown className="size-3" />
-            )}
-            Histórico
+            <RotateCcw className="size-3.5" /> Reagendar
           </button>
         </div>
       </div>
@@ -758,14 +545,9 @@ function LeadCard({
           onCancel={() => setPanel({ kind: "none" })}
         />
       )}
-      {myKind === "historico" && <HistoricoPanel customerId={lead.id} />}
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// ConcluirPanel
-// ---------------------------------------------------------------------------
 
 function ConcluirPanel({
   leadId, isPending, onConcluir, onCancel,
@@ -779,15 +561,15 @@ function ConcluirPanel({
   const [nota, setNota] = useState("");
 
   return (
-    <div className="border-t border-border bg-muted/40 px-4 py-3">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+    <div className="border-t border-border bg-muted/30 px-4 py-3">
+      <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-success">
         Registrar contato realizado
       </p>
       <div className="flex flex-wrap gap-2">
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
         >
           {FOLLOW_UP_TYPES.map((t) => (
             <option key={t.id} value={t.id}>{t.label}</option>
@@ -797,18 +579,18 @@ function ConcluirPanel({
           value={nota}
           onChange={(e) => setNota(e.target.value)}
           placeholder="Observação (opcional)"
-          className="h-8 min-w-40 flex-1 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-primary/60"
+          className="h-9 min-w-40 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
         />
         <button
           onClick={() => onConcluir({ leadId, tipo, nota })}
           disabled={isPending}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-success px-4 text-sm font-semibold text-success-foreground hover:opacity-90 disabled:opacity-60"
         >
-          <CheckCircle2 className="size-3" /> Confirmar
+          <CheckCircle2 className="size-3.5" /> Confirmar
         </button>
         <button
           onClick={onCancel}
-          className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs text-muted-foreground hover:bg-muted"
+          className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
         >
           Cancelar
         </button>
@@ -816,10 +598,6 @@ function ConcluirPanel({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// ReagendarPanel
-// ---------------------------------------------------------------------------
 
 function ReagendarPanel({
   lead, isPending, onReagendar, onCancel,
@@ -838,8 +616,8 @@ function ReagendarPanel({
   const [nota, setNota]         = useState(lead.next_action_notes ?? "");
 
   return (
-    <div className="border-t border-border bg-muted/40 px-4 py-3">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary">
+    <div className="border-t border-border bg-muted/30 px-4 py-3">
+      <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-primary">
         Reagendar próxima ação
       </p>
       <div className="flex flex-wrap gap-2">
@@ -847,12 +625,12 @@ function ReagendarPanel({
           type="datetime-local"
           value={novaData}
           onChange={(e) => setNovaData(e.target.value)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
         />
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
         >
           {FOLLOW_UP_TYPES.map((t) => (
             <option key={t.id} value={t.id}>{t.label}</option>
@@ -862,82 +640,22 @@ function ReagendarPanel({
           value={nota}
           onChange={(e) => setNota(e.target.value)}
           placeholder="Observação (opcional)"
-          className="h-8 min-w-40 flex-1 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-primary/60"
+          className="h-9 min-w-40 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
         />
         <button
           onClick={() => { if (novaData) onReagendar({ leadId: lead.id, novaData, tipo, nota }); }}
           disabled={!novaData || isPending}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           Salvar
         </button>
         <button
           onClick={onCancel}
-          className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs text-muted-foreground hover:bg-muted"
+          className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
         >
           Cancelar
         </button>
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// HistoricoPanel — fetches interactions on demand
-// ---------------------------------------------------------------------------
-
-function HistoricoPanel({ customerId }: { customerId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["historico", customerId],
-    queryFn: () => fetchHistorico(customerId),
-    staleTime: 30_000,
-  });
-
-  return (
-    <div className="border-t border-border bg-muted/40 px-4 py-3">
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-widest">
-        Histórico de contatos
-      </p>
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-10 animate-pulse rounded-md border border-border bg-card" />
-          ))}
-        </div>
-      ) : !data || data.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Sem interações registradas.</p>
-      ) : (
-        <ol className="relative space-y-3 border-l-2 border-border pl-4">
-          {data.map((it) => (
-            <li key={it.id} className="relative">
-              <span className="absolute -left-[17px] top-1 size-2.5 rounded-full bg-primary ring-2 ring-background" />
-              <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                  {it.type.replace(/_/g, " ")}
-                </span>
-                <div className="flex items-center gap-2">
-                  {it.user_nome && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                      <User className="size-2.5" />
-                      {it.user_nome}
-                    </span>
-                  )}
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {new Date(it.created_at).toLocaleString("pt-BR", {
-                      day: "2-digit", month: "2-digit",
-                      hour: "2-digit", minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-              </div>
-              {it.content && (
-                <p className="mt-0.5 text-xs text-foreground/80">{it.content}</p>
-              )}
-            </li>
-          ))}
-        </ol>
-      )}
     </div>
   );
 }
