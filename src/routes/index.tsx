@@ -9,8 +9,9 @@ import {
   Plus, ArrowRight, AlertTriangle, Clock,
   TrendingUp, Users, Activity, Bell,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Dashboard Comercial — DriverLeads" }] }),
@@ -164,11 +165,39 @@ function LeadsFeedItem({ n }: { n: AppNotification }) {
 
 function Dashboard() {
   const { perfil, nome } = useAuth();
+  const navigate   = useNavigate();
   const isVendedor = perfil === "vendedor";
   const isGerente  = perfil === "gerente" || perfil === "admin_loja" || perfil === "super_admin";
 
   const [period, setPeriod] = useState<Period>("semana");
-  const { notifications, unreadCount, markAllRead } = useNotifications();
+  const { notifications, loading: notifLoading, unreadCount, markAllRead } = useNotifications();
+
+  // Toast for live Realtime inserts — skip initial load
+  const initialLoadDoneRef = useRef(false);
+  const prevNotifCountRef  = useRef(0);
+  useEffect(() => {
+    if (!initialLoadDoneRef.current) {
+      if (!notifLoading) {
+        initialLoadDoneRef.current = true;
+        prevNotifCountRef.current  = notifications.length;
+      }
+      return;
+    }
+    if (notifications.length > prevNotifCountRef.current) {
+      const newOnes = notifications.slice(0, notifications.length - prevNotifCountRef.current);
+      for (const n of newOnes) {
+        const customerId = n.metadata?.customer_id as string | undefined;
+        toast.success(n.title, {
+          description: n.body ?? undefined,
+          action: customerId
+            ? { label: "Ver", onClick: () => navigate({ to: `/clientes/${customerId}` as never }) }
+            : undefined,
+          duration: 8000,
+        });
+      }
+      prevNotifCountRef.current = notifications.length;
+    }
+  }, [notifications, notifLoading]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],

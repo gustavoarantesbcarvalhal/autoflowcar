@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MetaOauthCallbackRouteImport } from './routes/meta-oauth-callback'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as LoginRouteImport } from './routes/login'
@@ -22,6 +23,11 @@ import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ClientesNovoRouteImport } from './routes/clientes.novo'
 import { Route as ClientesIdRouteImport } from './routes/clientes.$id'
 
+const MetaOauthCallbackRoute = MetaOauthCallbackRouteImport.update({
+  id: '/meta-oauth-callback',
+  path: '/meta-oauth-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/meta-oauth-callback': typeof MetaOauthCallbackRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/meta-oauth-callback': typeof MetaOauthCallbackRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/agenda': typeof AgendaRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/meta-oauth-callback': typeof MetaOauthCallbackRoute
   '/estoque': typeof EstoqueRoute
   '/exportar': typeof ExportarRoute
   '/followup': typeof FollowupRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agenda'
     | '/configuracoes'
+    | '/meta-oauth-callback'
     | '/estoque'
     | '/exportar'
     | '/followup'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agenda'
     | '/configuracoes'
+    | '/meta-oauth-callback'
     | '/estoque'
     | '/exportar'
     | '/followup'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agenda'
     | '/configuracoes'
+    | '/meta-oauth-callback'
     | '/estoque'
     | '/exportar'
     | '/followup'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AgendaRoute: typeof AgendaRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
+  MetaOauthCallbackRoute: typeof MetaOauthCallbackRoute
   EstoqueRoute: typeof EstoqueRoute
   ExportarRoute: typeof ExportarRoute
   FollowupRoute: typeof FollowupRoute
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/meta-oauth-callback': {
+      id: '/meta-oauth-callback'
+      path: '/meta-oauth-callback'
+      fullPath: '/meta-oauth-callback'
+      preLoaderRoute: typeof MetaOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AgendaRoute: AgendaRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
+  MetaOauthCallbackRoute: MetaOauthCallbackRoute,
   EstoqueRoute: EstoqueRoute,
   ExportarRoute: ExportarRoute,
   FollowupRoute: FollowupRoute,

@@ -409,8 +409,14 @@ export type Database = {
         Row: {
           config: Json | null
           created_at: string
+          fb_ad_account_id: string | null
+          fb_ad_account_name: string | null
           fb_page_access_token: string | null
           fb_page_id: string | null
+          fb_page_name: string | null
+          fb_user_access_token: string | null
+          fb_user_token_expires_at: string | null
+          fb_webhook_subscribed_at: string | null
           id: string
           last_error: string | null
           last_error_at: string | null
@@ -426,8 +432,14 @@ export type Database = {
         Insert: {
           config?: Json | null
           created_at?: string
+          fb_ad_account_id?: string | null
+          fb_ad_account_name?: string | null
           fb_page_access_token?: string | null
           fb_page_id?: string | null
+          fb_page_name?: string | null
+          fb_user_access_token?: string | null
+          fb_user_token_expires_at?: string | null
+          fb_webhook_subscribed_at?: string | null
           id?: string
           last_error?: string | null
           last_error_at?: string | null
@@ -443,8 +455,14 @@ export type Database = {
         Update: {
           config?: Json | null
           created_at?: string
+          fb_ad_account_id?: string | null
+          fb_ad_account_name?: string | null
           fb_page_access_token?: string | null
           fb_page_id?: string | null
+          fb_page_name?: string | null
+          fb_user_access_token?: string | null
+          fb_user_token_expires_at?: string | null
+          fb_webhook_subscribed_at?: string | null
           id?: string
           last_error?: string | null
           last_error_at?: string | null

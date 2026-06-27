@@ -124,12 +124,16 @@ export const desconectarIntegracao = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("tenant_integrations")
       .update({
-        status:               "inativo",
-        fb_page_access_token: null,
-        wa_api_token:         null,
-        last_sync_at:         null,
-        last_error:           null,
-        last_error_at:        null,
+        status:                    "inativo",
+        fb_page_access_token:      null,
+        fb_user_access_token:      null,
+        fb_page_id:                null,
+        fb_page_name:              null,
+        fb_webhook_subscribed_at:  null,
+        wa_api_token:              null,
+        last_sync_at:              null,
+        last_error:                null,
+        last_error_at:             null,
       })
       .eq("tenant_id", tenant_id)
       .eq("platform", data.platform);
