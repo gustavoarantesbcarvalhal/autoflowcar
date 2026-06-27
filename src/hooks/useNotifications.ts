@@ -16,7 +16,9 @@ export function useNotifications() {
   const { perfil } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Unique per-instance name avoids collisions when hook is mounted in multiple components
+  const channelName = useRef(`notifications-rt-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     if (!perfil) return;
@@ -36,7 +38,7 @@ export function useNotifications() {
       });
 
     const channel = supabase
-      .channel("notifications-realtime")
+      .channel(channelName.current)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
