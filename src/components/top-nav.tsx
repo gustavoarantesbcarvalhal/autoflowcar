@@ -66,8 +66,9 @@ export function TopNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const followUpBadge = useFollowUpBadge();
 
-  const podeVerExportar = perfil !== "vendedor" && perfil !== null;
-  const podeVerUsuarios = perfil === "admin_loja" || perfil === "gerente";
+  const podeVerExportar    = perfil !== "vendedor" && perfil !== null;
+  const podeVerUsuarios    = perfil === "admin_loja" || perfil === "gerente";
+  const podeVerConfigacoes = perfil === "admin_loja";
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -107,8 +108,9 @@ export function TopNav() {
           <NavLink to="/followup"  label="Follow-up" pathname={pathname} badge={followUpBadge} />
           <NavLink to="/estoque"   label="Estoque"   pathname={pathname} />
           <NavLink to="/agenda"    label="Agenda"    pathname={pathname} />
-          {podeVerExportar && <NavLink to="/exportar" label="Exportar"  pathname={pathname} />}
-          {podeVerUsuarios && <NavLink to="/usuarios" label="Usuários"  pathname={pathname} />}
+          {podeVerExportar    && <NavLink to="/exportar"       label="Exportar"     pathname={pathname} />}
+          {podeVerUsuarios    && <NavLink to="/usuarios"       label="Usuários"     pathname={pathname} />}
+          {podeVerConfigacoes && <NavLink to="/configuracoes"  label="Integrações"  pathname={pathname} />}
         </div>
       </div>
 

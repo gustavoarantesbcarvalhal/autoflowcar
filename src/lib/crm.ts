@@ -1,11 +1,28 @@
 export const STATUSES = [
-  { id: "primeiro_contato", label: "Primeiro Contato", accent: "bg-sky-500" },
-  { id: "em_atendimento",   label: "Em Atendimento",   accent: "bg-amber-500" },
-  { id: "em_negociacao",    label: "Negociação",        accent: "bg-primary" },
-  { id: "visita",           label: "Visita",            accent: "bg-violet-500" },
-  { id: "venda_realizada",  label: "Venda Realizada",   accent: "bg-emerald-500" },
-  { id: "perdido",          label: "Perdido",           accent: "bg-slate-400" },
+  { id: "novo_lead",        label: "Novo Lead",         accent: "bg-blue-400" },
+  { id: "primeiro_contato", label: "Primeiro Contato",  accent: "bg-sky-500" },
+  { id: "em_atendimento",   label: "Em Atendimento",    accent: "bg-amber-500" },
+  { id: "em_negociacao",    label: "Negociação",         accent: "bg-primary" },
+  { id: "visita",           label: "Visita",             accent: "bg-violet-500" },
+  { id: "venda_realizada",  label: "Venda Realizada",    accent: "bg-emerald-500" },
+  { id: "perdido",          label: "Perdido",            accent: "bg-slate-400" },
 ] as const;
+
+// Plataformas de integração de leads
+export const INTEGRATION_PLATFORMS = [
+  { id: "meta_lead_ads", label: "Meta Lead Ads",       source: "facebook"  },
+  { id: "meta_ctwa",     label: "Meta Click-WhatsApp", source: "instagram" },
+  { id: "generic",       label: "API / Site",          source: "site"      },
+  { id: "webmotors",     label: "Webmotors",           source: "marketplace" },
+  { id: "olx",           label: "OLX",                 source: "olx"       },
+] as const;
+
+export type SourcePlatformId = (typeof INTEGRATION_PLATFORMS)[number]["id"] | "manual";
+
+export function sourcePlatformLabel(id: string | null | undefined): string {
+  if (!id || id === "manual") return "Manual";
+  return INTEGRATION_PLATFORMS.find((p) => p.id === id)?.label ?? id;
+}
 
 export type StatusId = (typeof STATUSES)[number]["id"];
 
