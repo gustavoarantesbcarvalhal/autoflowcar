@@ -299,6 +299,7 @@ function IntegrationDashboard({
 
 type MetaWizardStep =
   | "disconnected"
+  | "not_configured"
   | "connecting"
   | "loading_pages"
   | "select_page"
@@ -381,8 +382,13 @@ function MetaCard({
       }
     } catch (e) {
       if (!isMounted.current) return;
-      toast.error(e instanceof Error ? e.message : "Erro ao iniciar OAuth");
-      setStep("disconnected");
+      const msg = e instanceof Error ? e.message : "Erro ao iniciar OAuth";
+      if (msg.toLowerCase().includes("não configurado") || msg.toLowerCase().includes("nao configurado")) {
+        setStep("not_configured");
+      } else {
+        toast.error(msg);
+        setStep("disconnected");
+      }
     }
   }
 
@@ -473,6 +479,56 @@ function MetaCard({
               : <><svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>Continuar com Facebook</>
             }
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "not_configured") {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border p-5">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-[#1877F2]/10">
+            <svg className="size-5" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Meta Lead Ads</p>
+            <p className="text-xs text-muted-foreground">Facebook + Instagram</p>
+          </div>
+          <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="size-3" />Pendente configuração
+          </span>
+        </div>
+        <div className="p-5">
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-900/20">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Integração não configurada
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+                Esta integração ainda não foi configurada pelo administrador da plataforma. As variáveis de ambiente
+                <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-[10px] dark:bg-amber-900/40">META_APP_ID</code>
+                e
+                <code className="mx-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-[10px] dark:bg-amber-900/40">META_OAUTH_REDIRECT_URI</code>
+                precisam ser definidas no painel da DriverLeads antes de usar esta funcionalidade.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="mailto:suporte@driverleads.com.br?subject=Configuração Meta Ads OAuth"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Entrar em contato com o suporte
+            </a>
+            <button
+              onClick={() => setStep("disconnected")}
+              className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
+            >
+              Voltar
+            </button>
+          </div>
         </div>
       </div>
     );
