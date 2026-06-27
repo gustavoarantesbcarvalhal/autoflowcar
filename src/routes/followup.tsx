@@ -120,14 +120,16 @@ function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
     : leads;
 
   const now        = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const todayEnd   = todayStart + 86_400_000;
-  const weekEnd    = todayStart + 8 * 86_400_000;
-  const stuck14    = todayStart - STUCK_DAYS * 86_400_000;
+  const y = now.getFullYear(); const mo = now.getMonth(); const d = now.getDate();
+  const todayStart = new Date(y, mo, d).getTime();
+  const todayEnd   = new Date(y, mo, d + 1).getTime();
+  const weekEnd    = new Date(y, mo, d + 8).getTime();
+  const stuck14    = new Date(y, mo, d - STUCK_DAYS).getTime();
 
   const vencidos:  FollowUpLead[] = [];
   const hoje:      FollowUpLead[] = [];
   const proximos7: FollowUpLead[] = [];
+  const futuro:    FollowUpLead[] = [];
   const semData:   FollowUpLead[] = [];
   const parados:   FollowUpLead[] = [];
 
@@ -137,6 +139,7 @@ function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
       if      (t < todayStart) vencidos.push(lead);
       else if (t < todayEnd)   hoje.push(lead);
       else if (t < weekEnd)    proximos7.push(lead);
+      else                     futuro.push(lead);
     } else {
       const refDate = lead.status_changed_at ?? lead.created_at;
       const refTime = new Date(refDate).getTime();
@@ -149,7 +152,7 @@ function groupLeads(leads: FollowUpLead[], filterVendedorId?: string) {
     }
   }
 
-  return { vencidos, hoje, proximos7, semData, parados };
+  return { vencidos, hoje, proximos7, futuro, semData, parados };
 }
 
 function FollowupPage() {
@@ -180,9 +183,9 @@ function FollowupPage() {
     [data, filterVendedor],
   );
 
-  const { vencidos, hoje, proximos7, semData, parados } = groups;
+  const { vencidos, hoje, proximos7, futuro, semData, parados } = groups;
   const urgentes = vencidos.length + hoje.length;
-  const totalFU  = urgentes + proximos7.length + semData.length + parados.length;
+  const totalFU  = urgentes + proximos7.length + futuro.length + semData.length + parados.length;
 
   const concluir = useMutation({
     mutationFn: async ({ leadId, tipo, nota }: ConcluirArgs) => {
@@ -289,6 +292,14 @@ function FollowupPage() {
           <Section title="Hoje"               tone="warning" icon={Clock}         leads={hoje}      {...shared} />
           <Section title="Próximos 7 dias"    tone="info"    icon={CalendarClock} leads={proximos7} {...shared} />
           <Section
+            title="Agendados (+ de 7 dias)"
+            tone="future"
+            icon={CalendarClock}
+            leads={futuro}
+            subtitle="retorno planejado além da próxima semana"
+            {...shared}
+          />
+          <Section
             title="Parados em etapa"
             tone="stuck"
             icon={AlertTriangle}
@@ -314,6 +325,7 @@ const TONE_CLS = {
   danger:  "text-destructive",
   warning: "text-amber-500 dark:text-amber-400",
   info:    "text-primary",
+  future:  "text-violet-500 dark:text-violet-400",
   stuck:   "text-orange-500 dark:text-orange-400",
   muted:   "text-muted-foreground",
 } as const;

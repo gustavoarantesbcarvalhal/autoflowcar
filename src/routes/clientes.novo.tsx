@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SOURCES, STATUSES, formatPriceBRL } from "@/lib/crm";
 import { toast } from "sonner";
@@ -11,6 +11,29 @@ export const Route = createFileRoute("/clientes/novo")({
   head: () => ({ meta: [{ title: "Novo Cliente — DriverLeads" }] }),
   component: NovoCliente,
 });
+
+const DRAFT_KEY = "draft:clientes.novo";
+
+const INITIAL_FORM = {
+  name: "", phone: "", whatsapp: "", city: "", email: "",
+  interest_vehicle_id: "",
+  interest_brand: "", interest_model: "", interest_year: "",
+  price_min: "", price_max: "", notes: "",
+  source: "outros", status: "primeiro_contato",
+};
+
+type ClienteNovoForm = typeof INITIAL_FORM;
+
+function readDraft(): ClienteNovoForm | null {
+  try {
+    const saved = sessionStorage.getItem(DRAFT_KEY);
+    return saved ? (JSON.parse(saved) as ClienteNovoForm) : null;
+  } catch { return null; }
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+}
 
 type StockVehicle = {
   id: string; brand: string; model: string;
@@ -35,13 +58,11 @@ function NovoCliente() {
     queryFn: fetchAvailableVehicles,
   });
 
-  const [form, setForm] = useState({
-    name: "", phone: "", whatsapp: "", city: "", email: "",
-    interest_vehicle_id: "",
-    interest_brand: "", interest_model: "", interest_year: "",
-    price_min: "", price_max: "", notes: "",
-    source: "outros", status: "primeiro_contato",
-  });
+  const [form, setForm] = useState<ClienteNovoForm>(() => readDraft() ?? INITIAL_FORM);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(form)); } catch { /* ignore */ }
+  }, [form]);
 
   const selectedVehicle = vehicles?.find((v) => v.id === form.interest_vehicle_id) ?? null;
 
@@ -78,6 +99,7 @@ function NovoCliente() {
       return data.id as string;
     },
     onSuccess: (id) => {
+      clearDraft();
       toast.success("Cliente cadastrado");
       navigate({ to: "/clientes/$id", params: { id } });
     },
@@ -90,7 +112,7 @@ function NovoCliente() {
 
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-6">
-      <Link to="/clientes" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
+      <Link to="/clientes" onClick={clearDraft} className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Voltar para Pipeline
       </Link>
       <h1 className="text-2xl font-bold tracking-tight">Cadastro Rápido de Cliente</h1>
