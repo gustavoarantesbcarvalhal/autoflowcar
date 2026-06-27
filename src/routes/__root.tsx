@@ -8,12 +8,13 @@ import {
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "@/components/theme-provider";
-import { TopNav } from "@/components/top-nav";
+import { Sidebar } from "@/components/sidebar";
+import { TopBar } from "@/components/top-bar";
 import { MobileNav } from "@/components/mobile-nav";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -168,6 +169,18 @@ function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("dl:sidebar:collapsed") === "true"; } catch { return false; }
+  });
+
+  function toggleSidebar() {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem("dl:sidebar:collapsed", String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
   const isLoginPage = pathname === "/login";
   const isAdminPage = pathname.startsWith("/admin");
 
@@ -230,12 +243,15 @@ function AppShell() {
 
   // Main app with nav
   return (
-    <div className="min-h-screen bg-surface text-foreground">
-      <TopNav />
-      <main className="pb-20 md:pb-0">
-        <Outlet />
-      </main>
-      <MobileNav />
+    <div className="flex min-h-screen bg-surface text-foreground">
+      <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+      <div className="flex flex-1 flex-col">
+        <TopBar />
+        <main className="flex-1 pb-20 md:pb-0">
+          <Outlet />
+        </main>
+        <MobileNav />
+      </div>
       <Toaster richColors position="top-right" />
     </div>
   );
