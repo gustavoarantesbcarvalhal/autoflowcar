@@ -1,12 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STATUSES, formatPriceBRL, daysSince } from "@/lib/crm";
 import { WaButton } from "@/components/wa-button";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications, type AppNotification } from "@/hooks/useNotifications";
 import {
   Plus, ArrowRight, AlertTriangle, Clock,
-  TrendingUp, Users, Activity,
+  TrendingUp, Users, Activity, Bell,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -123,12 +124,51 @@ function PeriodFilter({ value, onChange }: { value: Period; onChange: (p: Period
   );
 }
 
+const PLATFORM_LABEL: Record<string, { label: string; cls: string }> = {
+  meta_lead_ads:    { label: "Meta Ads",  cls: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+  meta_ctwa:        { label: "WhatsApp",  cls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  whatsapp_organic: { label: "WhatsApp",  cls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  generic:          { label: "Site",      cls: "bg-muted text-muted-foreground" },
+};
+
+function LeadsFeedItem({ n }: { n: AppNotification }) {
+  const navigate   = useNavigate();
+  const customerId = n.metadata?.customer_id as string | undefined;
+  const platform   = n.metadata?.platform as string | undefined;
+  const tag        = platform ? (PLATFORM_LABEL[platform] ?? PLATFORM_LABEL.generic) : PLATFORM_LABEL.generic;
+
+  return (
+    <li
+      onClick={() => customerId && navigate({ to: `/clientes/${customerId}` as never })}
+      className={cn(
+        "flex cursor-pointer items-start gap-2.5 px-4 py-2.5 transition-colors hover:bg-muted/60",
+        !n.read && "bg-primary/5",
+      )}
+    >
+      <div className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", !n.read ? "bg-primary" : "bg-transparent")} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-xs font-semibold">{n.title}</p>
+          <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[9px] font-bold", tag.cls)}>
+            {tag.label}
+          </span>
+        </div>
+        {n.body && <p className="truncate text-[11px] text-muted-foreground">{n.body}</p>}
+        <p className="mt-0.5 text-[10px] text-muted-foreground">
+          {new Date(n.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+        </p>
+      </div>
+    </li>
+  );
+}
+
 function Dashboard() {
   const { perfil, nome } = useAuth();
   const isVendedor = perfil === "vendedor";
   const isGerente  = perfil === "gerente" || perfil === "admin_loja" || perfil === "super_admin";
 
   const [period, setPeriod] = useState<Period>("semana");
+  const { notifications, unreadCount, markAllRead } = useNotifications();
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
@@ -406,6 +446,50 @@ function Dashboard() {
                 })
               )}
             </div>
+          </div>
+
+          {/* Feed de leads recebidos */}
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Bell className="size-4 text-primary" />
+                Últimos Leads
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-destructive px-1.5 py-px text-[9px] font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </h2>
+              {unreadCount > 0 && (
+                <button
+                  onClick={() => markAllRead()}
+                  className="text-[11px] text-primary hover:underline"
+                >
+                  Marcar lidos
+                </button>
+              )}
+            </div>
+            {notifications.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                Nenhum lead recebido ainda.
+              </p>
+            ) : (
+              <ul className="max-h-64 divide-y divide-border overflow-y-auto">
+                {notifications.slice(0, 8).map((n) => (
+                  <LeadsFeedItem key={n.id} n={n} />
+                ))}
+              </ul>
+            )}
+            {notifications.length > 0 && (
+              <div className="border-t border-border px-4 py-2">
+                <Link
+                  to="/clientes"
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  Ver todos os leads <ArrowRight className="size-3" />
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Funil */}
