@@ -6,6 +6,9 @@ import { Plus, Trash2, X, ImageIcon, Upload, Pencil, Car, Search, Filter, Slider
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PageHeader } from "@/components/page-header";
+import { inputCls, labelCls, FormField, FormSection } from "@/components/form-field";
 
 export const Route = createFileRoute("/estoque")({
   head: () => ({ meta: [{ title: "Estoque de Veículos — DriverLeads" }] }),
@@ -278,6 +281,7 @@ function EstoquePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [photoVehicle, setPhotoVehicle] = useState<Vehicle | null>(null);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const now = new Date();
   const [filter, setFilter] = useState({
     q: "", range: 0, status: "", month: -1, year: now.getFullYear(),
@@ -353,22 +357,19 @@ function EstoquePage() {
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
 
-      {/* Header */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Estoque de Veículos</h1>
-          <p className="text-sm text-muted-foreground">
-            {filtered.length} de {(data ?? []).length} veículos
-          </p>
-        </div>
-        <button
-          onClick={() => setShowNew((s) => !s)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-        >
-          {showNew ? <X className="size-4" /> : <Plus className="size-4" />}
-          {showNew ? "Cancelar" : "Adicionar Veículo"}
-        </button>
-      </div>
+      <PageHeader
+        title="Estoque de Veículos"
+        subtitle={`${filtered.length} de ${(data ?? []).length} veículos`}
+        action={
+          <button
+            onClick={() => setShowNew((s) => !s)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+          >
+            {showNew ? <X className="size-4" /> : <Plus className="size-4" />}
+            {showNew ? "Cancelar" : "Adicionar Veículo"}
+          </button>
+        }
+      />
 
       {showNew && (
         <NewVehicleForm
@@ -490,7 +491,7 @@ function EstoquePage() {
               v={v}
               onEdit={() => setEditVehicle(v)}
               onPhotos={() => setPhotoVehicle(v)}
-              onDelete={() => { if (confirm("Excluir este veículo?")) remove.mutate(v.id); }}
+              onDelete={() => setDeleteTarget(v.id)}
               onStatusChange={(status) => updateStatus.mutate({ id: v.id, status })}
             />
           ))}
@@ -517,6 +518,17 @@ function EstoquePage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        title="Excluir veículo?"
+        description="Esta ação não pode ser desfeita. O veículo será removido permanentemente."
+        confirmLabel="Excluir"
+        variant="danger"
+        isPending={remove.isPending}
+        onConfirm={() => { if (deleteTarget) remove.mutate(deleteTarget); setDeleteTarget(null); }}
+      />
     </div>
   );
 }
@@ -595,9 +607,6 @@ function EditVehicleModal({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const inp = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60";
-  const lbl = "mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -615,57 +624,57 @@ function EditVehicleModal({
 
         <div className="space-y-6 p-5">
           <section>
-            <p className={cn(lbl, "mb-3")}>Informações Básicas</p>
+            <p className={cn(labelCls, "mb-3")}>Informações Básicas</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
-                <label className={lbl}>Marca *</label>
-                <input value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inp} />
+                <label className={labelCls}>Marca *</label>
+                <input value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inputCls} />
               </div>
               <div className="sm:col-span-2">
-                <label className={lbl}>Modelo *</label>
-                <input value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inp} />
+                <label className={labelCls}>Modelo *</label>
+                <input value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inputCls} />
               </div>
               <div>
-                <label className={lbl}>Versão</label>
-                <input value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} placeholder="XEi" className={inp} />
+                <label className={labelCls}>Versão</label>
+                <input value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} placeholder="XEi" className={inputCls} />
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
-                <label className={lbl}>Ano</label>
+                <label className={labelCls}>Ano</label>
                 <input
                   type="text" inputMode="numeric" maxLength={4} placeholder="2022"
                   value={f.year}
                   onChange={(e) => setF({ ...f, year: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-                  className={inp}
+                  className={inputCls}
                 />
               </div>
               <div>
-                <label className={lbl}>Cor</label>
-                <input value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} placeholder="Prata" className={inp} />
+                <label className={labelCls}>Cor</label>
+                <input value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} placeholder="Prata" className={inputCls} />
               </div>
               <div>
-                <label className={lbl}>KM</label>
+                <label className={labelCls}>KM</label>
                 <KmInput placeholder="45000" value={f.mileage} onChange={(v) => setF({ ...f, mileage: v })} />
               </div>
               <div>
-                <label className={lbl}>Status</label>
-                <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inp, "cursor-pointer")}>
+                <label className={labelCls}>Status</label>
+                <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
                   {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
-                <label className={lbl}>Combustível</label>
-                <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inp, "cursor-pointer")}>
+                <label className={labelCls}>Combustível</label>
+                <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
                   <option value="">— Selecionar —</option>
                   {FUEL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
-                <label className={lbl}>Câmbio</label>
-                <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inp, "cursor-pointer")}>
+                <label className={labelCls}>Câmbio</label>
+                <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
                   <option value="">— Selecionar —</option>
                   {TRANSMISSION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -674,24 +683,24 @@ function EditVehicleModal({
           </section>
 
           <section>
-            <p className={cn(lbl, "mb-3")}>Informações Comerciais</p>
+            <p className={cn(labelCls, "mb-3")}>Informações Comerciais</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className={lbl}>Valor anunciado</label>
+                <label className={labelCls}>Valor anunciado</label>
                 <CurrencyInput placeholder="Ex: 59900" value={f.price_listed} onChange={(v) => setF({ ...f, price_listed: v })} />
               </div>
               <div>
-                <label className={lbl}>Tabela FIPE</label>
+                <label className={labelCls}>Tabela FIPE</label>
                 <CurrencyInput placeholder="Ex: 58200" value={f.price_fipe} onChange={(v) => setF({ ...f, price_fipe: v })} />
               </div>
             </div>
           </section>
 
           <section>
-            <p className={cn(lbl, "mb-3")}>Oferta / Descrição</p>
+            <p className={cn(labelCls, "mb-3")}>Oferta / Descrição</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className={lbl}>Oferta / Bônus</label>
+                <label className={labelCls}>Oferta / Bônus</label>
                 <textarea
                   value={f.deal_offer}
                   onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
@@ -701,7 +710,7 @@ function EditVehicleModal({
                 />
               </div>
               <div>
-                <label className={lbl}>Descrição do veículo</label>
+                <label className={labelCls}>Descrição do veículo</label>
                 <textarea
                   value={f.description}
                   onChange={(e) => setF({ ...f, description: e.target.value })}
@@ -744,6 +753,7 @@ function PhotoModal({
 }) {
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [photoToDelete, setPhotoToDelete] = useState<VehiclePhoto | null>(null);
 
   const { data: photos = [] } = useQuery({
     queryKey: ["vehicle-photos", vehicle.id],
@@ -863,7 +873,7 @@ function PhotoModal({
                       </button>
                     )}
                     <button
-                      onClick={() => { if (confirm("Excluir foto?")) deletePhoto(photo); }}
+                      onClick={() => setPhotoToDelete(photo)}
                       className="rounded p-0.5 text-white/50 hover:text-red-400"
                     >
                       <Trash2 className="size-3.5" />
@@ -875,6 +885,16 @@ function PhotoModal({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={photoToDelete !== null}
+        onOpenChange={(o) => { if (!o) setPhotoToDelete(null); }}
+        title="Excluir foto?"
+        description="Esta foto será removida permanentemente."
+        confirmLabel="Excluir"
+        variant="danger"
+        onConfirm={() => { if (photoToDelete) { deletePhoto(photoToDelete); setPhotoToDelete(null); } }}
+      />
     </div>
   );
 }
@@ -928,49 +948,46 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
     onError:   (e: Error) => toast.error(e.message),
   });
 
-  const inp = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60";
-  const lbl = "mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground";
-
   return (
     <div className="mb-5 rounded-2xl border border-border bg-card p-5">
       <h3 className="mb-4 text-sm font-bold">Novo veículo</h3>
       <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <label className={lbl}>Marca *</label>
-            <input placeholder="Toyota" value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inp} />
+            <label className={labelCls}>Marca *</label>
+            <input placeholder="Toyota" value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inputCls} />
           </div>
           <div className="sm:col-span-2">
-            <label className={lbl}>Modelo *</label>
-            <input placeholder="Corolla" value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inp} />
+            <label className={labelCls}>Modelo *</label>
+            <input placeholder="Corolla" value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inputCls} />
           </div>
           <div>
-            <label className={lbl}>Versão</label>
-            <input placeholder="XEi" value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} className={inp} />
+            <label className={labelCls}>Versão</label>
+            <input placeholder="XEi" value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} className={inputCls} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <label className={lbl}>Ano</label>
+            <label className={labelCls}>Ano</label>
             <input
               type="text" inputMode="numeric" maxLength={4} placeholder="2022"
               value={f.year}
               onChange={(e) => setF({ ...f, year: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-              className={inp}
+              className={inputCls}
             />
           </div>
           <div>
-            <label className={lbl}>Cor</label>
-            <input placeholder="Prata" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className={inp} />
+            <label className={labelCls}>Cor</label>
+            <input placeholder="Prata" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className={inputCls} />
           </div>
           <div>
-            <label className={lbl}>KM</label>
+            <label className={labelCls}>KM</label>
             <KmInput placeholder="45000" value={f.mileage} onChange={(v) => setF({ ...f, mileage: v })} />
           </div>
           <div>
-            <label className={lbl}>Status</label>
-            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inp, "cursor-pointer")}>
+            <label className={labelCls}>Status</label>
+            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
               {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </div>
@@ -978,15 +995,15 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={lbl}>Combustível</label>
-            <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inp, "cursor-pointer")}>
+            <label className={labelCls}>Combustível</label>
+            <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
               <option value="">— Selecionar —</option>
               {FUEL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
           <div>
-            <label className={lbl}>Câmbio</label>
-            <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inp, "cursor-pointer")}>
+            <label className={labelCls}>Câmbio</label>
+            <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
               <option value="">— Selecionar —</option>
               {TRANSMISSION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -995,18 +1012,18 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className={lbl}>Valor anunciado</label>
+            <label className={labelCls}>Valor anunciado</label>
             <CurrencyInput placeholder="59900" value={f.price_listed} onChange={(v) => setF({ ...f, price_listed: v })} />
           </div>
           <div>
-            <label className={lbl}>Tabela FIPE</label>
+            <label className={labelCls}>Tabela FIPE</label>
             <CurrencyInput placeholder="58200" value={f.price_fipe} onChange={(v) => setF({ ...f, price_fipe: v })} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className={lbl}>Oferta / Bônus</label>
+            <label className={labelCls}>Oferta / Bônus</label>
             <textarea
               value={f.deal_offer}
               onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
@@ -1016,7 +1033,7 @@ function NewVehicleForm({ onDone }: { onDone: () => void }) {
             />
           </div>
           <div>
-            <label className={lbl}>Descrição do veículo</label>
+            <label className={labelCls}>Descrição do veículo</label>
             <textarea
               value={f.description}
               onChange={(e) => setF({ ...f, description: e.target.value })}

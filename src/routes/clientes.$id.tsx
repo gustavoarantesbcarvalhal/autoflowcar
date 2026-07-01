@@ -5,6 +5,7 @@ import { STATUSES, SOURCES, FOLLOW_UP_TYPES, formatPriceBRL, sourceLabel, status
 import { WaButton } from "@/components/wa-button";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, Phone, Mail, MapPin, Trash2, CheckCircle2, User, MessageCircle, ImageIcon, X, Pencil } from "lucide-react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -436,9 +437,10 @@ function ClienteDetalhe() {
 
   const canEditResponsavel = perfil !== "vendedor";
 
-  const [note, setNote] = useState("");
-  const [type, setType] = useState("nota");
-  const [showEdit, setShowEdit] = useState(false);
+  const [note, setNote]             = useState("");
+  const [type, setType]             = useState("nota");
+  const [showEdit, setShowEdit]     = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   const addInteraction = useMutation({
     mutationFn: async () => {
@@ -519,8 +521,8 @@ function ClienteDetalhe() {
             status={c.status as string}
           />
           <button
-            onClick={() => { if (confirm("Excluir cliente?")) remove.mutate(); }}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-destructive hover:bg-destructive/10"
+            onClick={() => setShowDelete(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border px-3 text-sm font-medium text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="size-4" />
           </button>
@@ -841,6 +843,17 @@ function ClienteDetalhe() {
           onSaved={() => qc.invalidateQueries({ queryKey: ["customer", id] })}
         />
       )}
+
+      <ConfirmDialog
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        title="Excluir cliente?"
+        description="Todos os dados, histórico e interações deste cliente serão removidos permanentemente."
+        confirmLabel="Excluir"
+        variant="danger"
+        isPending={remove.isPending}
+        onConfirm={() => remove.mutate()}
+      />
     </div>
   );
 }

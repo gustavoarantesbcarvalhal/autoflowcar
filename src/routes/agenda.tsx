@@ -6,6 +6,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, CheckCircle2, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/agenda")({
   head: () => ({ meta: [{ title: "Agenda — DriverLeads" }] }),
@@ -168,7 +171,8 @@ function AgendaModal({
 function AgendaPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["agenda"], queryFn: fetchAll });
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal]   = useState(false);
+  const [removeTarget, setRemove]   = useState<string | null>(null);
 
   const create = useMutation({
     mutationFn: async (f: NewForm) => {
@@ -215,31 +219,34 @@ function AgendaPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-8">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Agenda</h1>
-          <p className="text-sm text-muted-foreground">Retornos, visitas e test drives</p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-        >
-          <Plus className="size-4" /> Agendar
-        </button>
-      </div>
+      <PageHeader
+        title="Agenda"
+        subtitle="Retornos, visitas e test drives"
+        action={
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+          >
+            <Plus className="size-4" /> Agendar
+          </button>
+        }
+      />
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : (
         <div className="space-y-6">
-          <AgendaSection title="Atrasados" tone="danger"  items={overdue} customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={(id) => remove.mutate(id)} />
-          <AgendaSection title="Hoje"      tone="primary" items={today}   customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={(id) => remove.mutate(id)} />
-          <AgendaSection title="Esta semana"              items={week}    customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={(id) => remove.mutate(id)} />
-          <AgendaSection title="Mais tarde"               items={later}   customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={(id) => remove.mutate(id)} />
+          <AgendaSection title="Atrasados" tone="danger"  items={overdue} customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={setRemove} />
+          <AgendaSection title="Hoje"      tone="primary" items={today}   customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={setRemove} />
+          <AgendaSection title="Esta semana"              items={week}    customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={setRemove} />
+          <AgendaSection title="Mais tarde"               items={later}   customers={data?.customers ?? []} onToggle={(id, done) => toggle.mutate({ id, done })} onRemove={setRemove} />
           {overdue.length === 0 && today.length === 0 && week.length === 0 && later.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-              Nenhum compromisso agendado.
-            </div>
+            <EmptyState
+              icon={CheckCircle2}
+              title="Nenhum compromisso agendado"
+              subtitle='Clique em "Agendar" para adicionar um compromisso.'
+              tone="success"
+            />
           )}
         </div>
       )}
@@ -251,6 +258,17 @@ function AgendaPage() {
           onClose={() => setShowModal(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onOpenChange={(o) => { if (!o) setRemove(null); }}
+        title="Remover agendamento?"
+        description="Esta ação não pode ser desfeita."
+        confirmLabel="Remover"
+        variant="danger"
+        isPending={remove.isPending}
+        onConfirm={() => { if (removeTarget) remove.mutate(removeTarget); setRemove(null); }}
+      />
     </div>
   );
 }

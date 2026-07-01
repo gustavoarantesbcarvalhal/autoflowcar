@@ -12,6 +12,9 @@ import {
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton-presets";
 
 export const Route = createFileRoute("/followup")({
   head: () => ({ meta: [{ title: "Follow-up — DriverLeads" }] }),
@@ -247,45 +250,41 @@ function FollowupPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-8">
-      {/* Header */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Central de Follow-up</h1>
-          <p className="text-sm text-muted-foreground">
-            {isLoading
-              ? "Carregando…"
-              : `${urgentes} ${urgentes === 1 ? "ação urgente" : "ações urgentes"} · ${parados.length} parados · ${proximos7.length} nos próximos 7 dias`}
-          </p>
-        </div>
-        {isGerente && vendedorOptions.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Filter className="size-3.5 text-muted-foreground" />
-            <select
-              value={filterVendedor}
-              onChange={(e) => setFilterVendedor(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
-            >
-              <option value="">Toda a equipe</option>
-              {vendedorOptions.map((v) => (
-                <option key={v.id} value={v.id}>{v.nome}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Central de Follow-up"
+        subtitle={
+          isLoading
+            ? "Carregando…"
+            : `${urgentes} ${urgentes === 1 ? "ação urgente" : "ações urgentes"} · ${parados.length} parados · ${proximos7.length} nos próximos 7 dias`
+        }
+        action={
+          isGerente && vendedorOptions.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <Filter className="size-3.5 text-muted-foreground" />
+              <select
+                value={filterVendedor}
+                onChange={(e) => setFilterVendedor(e.target.value)}
+                className="h-9 rounded-[10px] border border-border bg-background px-2 text-sm outline-none focus:border-primary/60"
+              >
+                <option value="">Toda a equipe</option>
+                {vendedorOptions.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nome}</option>
+                ))}
+              </select>
+            </div>
+          ) : undefined
+        }
+      />
 
       {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl border border-border bg-card" />
-          ))}
-        </div>
+        <SkeletonList count={4} />
       ) : totalFU === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border py-20 text-center">
-          <CheckCircle2 className="mx-auto mb-3 size-10 text-success" />
-          <p className="text-sm font-semibold">Nenhum lead para acompanhar</p>
-          <p className="mt-1 text-xs text-muted-foreground">Todos os leads ativos estão em dia.</p>
-        </div>
+        <EmptyState
+          icon={CheckCircle2}
+          title="Nenhum lead para acompanhar"
+          subtitle="Todos os leads ativos estão em dia."
+          tone="success"
+        />
       ) : (
         <div className="space-y-8">
           <Section title="Vencidos"           tone="danger"  icon={AlertCircle}   leads={vencidos}  {...shared} />

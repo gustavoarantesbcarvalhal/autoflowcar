@@ -26,6 +26,9 @@ import {
   conectarPaginaMeta,
   salvarContaAnunciosMeta,
 } from "@/lib/api/meta-oauth.functions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PageHeader } from "@/components/page-header";
+import { inputCls } from "@/components/form-field";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — DriverLeads" }] }),
@@ -173,7 +176,7 @@ function copyToClipboard(text: string, label = "Copiado!") {
   navigator.clipboard.writeText(text).then(() => toast.success(label));
 }
 
-const inp = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60 transition-colors";
+const inp = inputCls;
 
 // Opens Meta OAuth in a popup and resolves with the result via postMessage
 function openOAuthPopup(url: string): Promise<{ status: "success" | "error" | "cancelled"; error?: string }> {
@@ -329,12 +332,13 @@ function MetaCard({
     return "disconnected";
   }
 
-  const [step, setStep]           = useState<MetaWizardStep>(deriveBaseStep);
-  const [pages, setPages]         = useState<MetaPage[]>([]);
-  const [adAccounts, setAdAccts]  = useState<MetaAdAccount[]>([]);
-  const [selPage, setSelPage]     = useState<MetaPage | null>(null);
-  const [selAcct, setSelAcct]     = useState<MetaAdAccount | null>(null);
-  const [testMsg, setTestMsg]     = useState<{ ok: boolean; msg: string } | null>(null);
+  const [step, setStep]               = useState<MetaWizardStep>(deriveBaseStep);
+  const [pages, setPages]             = useState<MetaPage[]>([]);
+  const [adAccounts, setAdAccts]      = useState<MetaAdAccount[]>([]);
+  const [selPage, setSelPage]         = useState<MetaPage | null>(null);
+  const [selAcct, setSelAcct]         = useState<MetaAdAccount | null>(null);
+  const [testMsg, setTestMsg]         = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showDisconnect, setShowDisc] = useState(false);
   const isMounted = useRef(true);
   useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
 
@@ -730,7 +734,7 @@ function MetaCard({
           <RefreshCw className="size-3.5" /> Reconectar
         </button>
         <button
-          onClick={() => { if (confirm("Desconectar Meta Lead Ads? Os leads existentes não serão afetados.")) disconnect.mutate(); }}
+          onClick={() => setShowDisc(true)}
           disabled={disconnect.isPending}
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-destructive/40 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
         >
@@ -738,6 +742,17 @@ function MetaCard({
           Desconectar
         </button>
       </div>
+
+      <ConfirmDialog
+        open={showDisconnect}
+        onOpenChange={setShowDisc}
+        title="Desconectar Meta Lead Ads?"
+        description="Os leads existentes não serão afetados. Você pode reconectar a qualquer momento."
+        confirmLabel="Desconectar"
+        variant="danger"
+        isPending={disconnect.isPending}
+        onConfirm={() => disconnect.mutate()}
+      />
     </div>
   );
 }
@@ -757,7 +772,8 @@ function WhatsAppCard({
 }) {
   const qc  = useQueryClient();
   const vs  = getVisualStatus(integration);
-  const [testMsg, setTestMsg] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [testMsg, setTestMsg]   = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showDisconnect, setShowDisc] = useState(false);
 
   const disconnect = useMutation({
     mutationFn: () => desconectarIntegracao({ data: { platform: "meta_ctwa" } }),
@@ -818,7 +834,7 @@ function WhatsAppCard({
             <button onClick={() => { setTestMsg(null); test.mutate(); }} disabled={test.isPending} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium hover:bg-muted disabled:opacity-60">
               {test.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Wifi className="size-3.5" />} Testar conexão
             </button>
-            <button onClick={() => { if (confirm("Desconectar WhatsApp Business?")) disconnect.mutate(); }} disabled={disconnect.isPending} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-destructive/40 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60">
+            <button onClick={() => setShowDisc(true)} disabled={disconnect.isPending} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-destructive/40 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60">
               {disconnect.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <WifiOff className="size-3.5" />} Desconectar
             </button>
           </>
@@ -828,6 +844,17 @@ function WhatsAppCard({
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showDisconnect}
+        onOpenChange={setShowDisc}
+        title="Desconectar WhatsApp Business?"
+        description="Os leads existentes não serão afetados. Você pode reconectar a qualquer momento."
+        confirmLabel="Desconectar"
+        variant="danger"
+        isPending={disconnect.isPending}
+        onConfirm={() => disconnect.mutate()}
+      />
     </div>
   );
 }
@@ -911,7 +938,8 @@ function WhatsAppConnectModal({ onClose, onSaved }: { onClose: () => void; onSav
 // ---------------------------------------------------------------------------
 
 function GenericCard({ integration, onRefresh }: { integration: Integration | null; onRefresh: () => void }) {
-  const [showToken, setShowToken] = useState(false);
+  const [showToken, setShowToken]   = useState(false);
+  const [showRegen, setShowRegen]   = useState(false);
   const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "").replace("/rest/v1", "");
   const webhookUrl  = `${supabaseUrl}/functions/v1/webhook-generic`;
 
@@ -966,7 +994,7 @@ function GenericCard({ integration, onRefresh }: { integration: Integration | nu
               <code className="flex-1 truncate rounded-lg bg-muted px-2.5 py-1.5 font-mono text-xs">{displayToken}</code>
               <button onClick={() => setShowToken((v) => !v)} className="grid size-8 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted">{showToken ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</button>
               <button onClick={() => copyToClipboard(token, "Token copiado!")} className="grid size-8 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted"><Copy className="size-3.5" /></button>
-              <button onClick={() => { if (confirm("Regenerar token? O token atual deixará de funcionar imediatamente.")) regen.mutate(); }} disabled={regen.isPending} className="grid size-8 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted disabled:opacity-60">
+              <button onClick={() => setShowRegen(true)} disabled={regen.isPending} className="grid size-8 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted disabled:opacity-60">
                 <RefreshCw className={cn("size-3.5", regen.isPending && "animate-spin")} />
               </button>
             </div>
@@ -993,6 +1021,17 @@ Body:
           </details>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showRegen}
+        onOpenChange={setShowRegen}
+        title="Regenerar token?"
+        description="O token atual deixará de funcionar imediatamente. Atualize todas as integrações que o utilizam."
+        confirmLabel="Regenerar"
+        variant="danger"
+        isPending={regen.isPending}
+        onConfirm={() => regen.mutate()}
+      />
     </div>
   );
 }
@@ -1314,10 +1353,10 @@ function ConfiguracoesPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-extrabold tracking-tight">Configurações</h1>
-        <p className="text-sm text-muted-foreground">Gerencie sua loja, usuários e integrações</p>
-      </div>
+      <PageHeader
+        title="Configurações"
+        subtitle="Gerencie sua loja, usuários e integrações"
+      />
 
       {/* Mobile tabs */}
       <div className="mb-4 flex gap-1 overflow-x-auto pb-1 md:hidden">
