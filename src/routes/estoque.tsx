@@ -8,27 +8,25 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
-import { inputCls, labelCls, FormField, FormSection } from "@/components/form-field";
+import { inputCls, labelCls, textareaCls, selectCls } from "@/components/form-field";
 
 export const Route = createFileRoute("/estoque")({
   head: () => ({ meta: [{ title: "Estoque de Veículos — DriverLeads" }] }),
   component: EstoquePage,
 });
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const FUEL_OPTIONS = ["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"];
+const FUEL_OPTIONS         = ["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"];
 const TRANSMISSION_OPTIONS = ["Manual", "Automático", "Automatizado", "CVT"];
 
 const PRICE_RANGES = [
-  { label: "Todos os preços", min: 0, max: Infinity },
-  { label: "Até R$ 40k", min: 0, max: 40000 },
-  { label: "Até R$ 60k", min: 0, max: 60000 },
-  { label: "Até R$ 80k", min: 0, max: 80000 },
-  { label: "R$ 80k–120k", min: 80000, max: 120000 },
-  { label: "Acima R$ 120k", min: 120000, max: Infinity },
+  { label: "Todos os preços", min: 0,      max: Infinity },
+  { label: "Até R$ 40k",     min: 0,      max: 40000    },
+  { label: "Até R$ 60k",     min: 0,      max: 60000    },
+  { label: "Até R$ 80k",     min: 0,      max: 80000    },
+  { label: "R$ 80k–120k",   min: 80000,  max: 120000   },
+  { label: "Acima R$ 120k", min: 120000, max: Infinity  },
 ];
 
 const MONTHS = [
@@ -42,9 +40,7 @@ const STATUS_STYLE: Record<string, string> = {
   vendido:    "bg-primary/15 text-primary",
 };
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Vehicle = {
   id: string; brand: string; model: string;
@@ -66,9 +62,48 @@ type VehiclePhoto = {
   ordem: number; is_main: boolean; created_at: string;
 };
 
-// ---------------------------------------------------------------------------
-// Numeric input helpers
-// ---------------------------------------------------------------------------
+// null = modal closed | "new" = add form | Vehicle = edit form
+type ModalTarget = null | "new" | Vehicle;
+
+// ── Shared form data type ─────────────────────────────────────────────────────
+
+type VehicleFormData = {
+  brand: string; model: string; version: string;
+  year: string; color: string; mileage: string;
+  fuel: string; transmission: string;
+  price_listed: string; price_fipe: string;
+  deal_offer: string; description: string;
+  status: string;
+};
+
+const EMPTY_FORM: VehicleFormData = {
+  brand: "", model: "", version: "",
+  year: "", color: "", mileage: "",
+  fuel: "", transmission: "",
+  price_listed: "", price_fipe: "",
+  deal_offer: "", description: "",
+  status: "disponivel",
+};
+
+function vehicleToForm(v: Vehicle): VehicleFormData {
+  return {
+    brand:        v.brand,
+    model:        v.model,
+    version:      v.version      ?? "",
+    year:         v.year         != null ? String(v.year) : "",
+    color:        v.color        ?? "",
+    mileage:      v.mileage      != null ? String(v.mileage) : "",
+    fuel:         v.fuel         ?? "",
+    transmission: v.transmission ?? "",
+    price_listed: v.price_listed != null ? String(Math.round(Number(v.price_listed))) : "",
+    price_fipe:   v.price_fipe   != null ? String(Math.round(Number(v.price_fipe)))   : "",
+    deal_offer:   v.deal_offer   ?? "",
+    description:  v.description  ?? "",
+    status:       v.status,
+  };
+}
+
+// ── Numeric input helpers ─────────────────────────────────────────────────────
 
 function parseRawCurrency(raw: string): string {
   const s = raw.replace(/R\$\s?/g, "").trim();
@@ -99,7 +134,7 @@ function CurrencyInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onChange={(e) => onChange(parseRawCurrency(e.target.value))}
-        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
+        className={inputCls}
       />
       {preview && <p className="mt-0.5 text-[10px] font-medium text-primary">{preview}</p>}
     </div>
@@ -116,9 +151,7 @@ function KmInput({
   const displayValue = focused
     ? value
     : num != null ? new Intl.NumberFormat("pt-BR").format(num) : "";
-  const preview = num != null
-    ? `${new Intl.NumberFormat("pt-BR").format(num)} km`
-    : null;
+  const preview = num != null ? `${new Intl.NumberFormat("pt-BR").format(num)} km` : null;
   return (
     <div>
       <input
@@ -127,16 +160,14 @@ function KmInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary/60"
+        className={inputCls}
       />
       {preview && <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">{preview}</p>}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Fetch
-// ---------------------------------------------------------------------------
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 
 async function fetchVehicles(): Promise<Vehicle[]> {
   const { data, error } = await supabase
@@ -147,16 +178,10 @@ async function fetchVehicles(): Promise<Vehicle[]> {
   return (data ?? []) as Vehicle[];
 }
 
-// ---------------------------------------------------------------------------
-// VehicleCard
-// ---------------------------------------------------------------------------
+// ── VehicleCard ───────────────────────────────────────────────────────────────
 
 function VehicleCard({
-  v,
-  onEdit,
-  onPhotos,
-  onDelete,
-  onStatusChange,
+  v, onEdit, onPhotos, onDelete, onStatusChange,
 }: {
   v: Vehicle;
   onEdit: () => void;
@@ -183,7 +208,6 @@ function VehicleCard({
             <span className="text-[10px] text-muted-foreground/50">Sem foto</span>
           </div>
         )}
-        {/* Status badge overlay */}
         <div className="absolute right-2 top-2">
           <span className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide", STATUS_STYLE[v.status] ?? "bg-muted text-foreground")}>
             {statusLabel}
@@ -233,7 +257,7 @@ function VehicleCard({
             value={v.status}
             onChange={(e) => onStatusChange(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            className="h-7 rounded-lg border border-border bg-background px-1.5 text-[10px] font-bold outline-none focus:border-primary/60"
+            className="h-7 rounded-[10px] border border-border bg-background px-1.5 text-[10px] font-bold outline-none focus:border-primary/60"
           >
             {VEHICLE_STATUSES.map((s) => (
               <option key={s.id} value={s.id}>{s.label}</option>
@@ -245,22 +269,19 @@ function VehicleCard({
         <div className="mt-3 flex items-center gap-1 border-t border-border pt-3">
           <button
             onClick={onEdit}
-            title="Editar"
-            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[10px] text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Pencil className="size-3.5" /> Editar
           </button>
           <button
             onClick={onPhotos}
-            title="Fotos"
-            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[10px] text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ImageIcon className="size-3.5" /> Fotos
           </button>
           <button
             onClick={onDelete}
-            title="Excluir"
-            className="h-8 w-8 rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="h-8 w-8 rounded-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 className="mx-auto size-3.5" />
           </button>
@@ -270,18 +291,17 @@ function VehicleCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// EstoquePage
-// ---------------------------------------------------------------------------
+// ── EstoquePage ───────────────────────────────────────────────────────────────
 
 function EstoquePage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["vehicles"], queryFn: fetchVehicles });
-  const [showNew, setShowNew] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+
+  const [modalTarget,  setModalTarget]  = useState<ModalTarget>(null);
   const [photoVehicle, setPhotoVehicle] = useState<Vehicle | null>(null);
-  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showFilters,  setShowFilters]  = useState(false);
+
   const now = new Date();
   const [filter, setFilter] = useState({
     q: "", range: 0, status: "", month: -1, year: now.getFullYear(),
@@ -302,7 +322,7 @@ function EstoquePage() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase
         .from("vehicles")
-        .update({ status: status as "disponivel" | "reservado" | "vendido" })
+        .update({ status: status as Vehicle["status"] })
         .eq("id", id);
       if (error) throw error;
     },
@@ -350,9 +370,19 @@ function EstoquePage() {
     );
   }
 
-  const hasActiveFilters = filter.status !== "" || filter.range !== 0 || filter.month >= 0;
+  function handleSaved(updated: Vehicle) {
+    qc.setQueryData<Vehicle[]>(["vehicles"], (old) => {
+      if (!old) return [updated];
+      const idx = old.findIndex((v) => v.id === updated.id);
+      if (idx >= 0) return old.map((v) => v.id === updated.id ? updated : v);
+      return [updated, ...old];
+    });
+    setModalTarget(null);
+  }
 
-  const selectCls = "h-9 rounded-lg border border-border bg-card px-2 text-sm outline-none focus:border-primary/60";
+  const hasActiveFilters = filter.status !== "" || filter.range !== 0 || filter.month >= 0;
+  // Selects in the filter bar use bg-card (not bg-background)
+  const filterSel = "h-9 rounded-[10px] border border-border bg-card px-2 text-sm outline-none focus:border-primary/60";
 
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-6">
@@ -362,20 +392,13 @@ function EstoquePage() {
         subtitle={`${filtered.length} de ${(data ?? []).length} veículos`}
         action={
           <button
-            onClick={() => setShowNew((s) => !s)}
+            onClick={() => setModalTarget("new")}
             className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
           >
-            {showNew ? <X className="size-4" /> : <Plus className="size-4" />}
-            {showNew ? "Cancelar" : "Adicionar Veículo"}
+            <Plus className="size-4" /> Adicionar Veículo
           </button>
         }
       />
-
-      {showNew && (
-        <NewVehicleForm
-          onDone={() => { setShowNew(false); qc.invalidateQueries({ queryKey: ["vehicles"] }); }}
-        />
-      )}
 
       {/* Filter bar */}
       <div className="mb-4 space-y-2">
@@ -386,13 +409,13 @@ function EstoquePage() {
               value={filter.q}
               onChange={(e) => setFilter({ ...filter, q: e.target.value })}
               placeholder="Buscar marca, modelo, versão ou ano…"
-              className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
+              className="h-9 w-full rounded-[10px] border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
             />
           </div>
           <button
             onClick={() => setShowFilters((s) => !s)}
             className={cn(
-              "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors",
+              "inline-flex h-9 items-center gap-1.5 rounded-[10px] border px-3 text-sm font-medium transition-colors",
               showFilters || hasActiveFilters
                 ? "border-primary/40 bg-primary/10 text-primary"
                 : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -413,7 +436,7 @@ function EstoquePage() {
             <select
               value={filter.status}
               onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-              className={selectCls}
+              className={filterSel}
             >
               <option value="">Todos os status</option>
               {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -421,14 +444,14 @@ function EstoquePage() {
             <select
               value={filter.range}
               onChange={(e) => setFilter({ ...filter, range: Number(e.target.value) })}
-              className={selectCls}
+              className={filterSel}
             >
               {PRICE_RANGES.map((r, i) => <option key={i} value={i}>{r.label}</option>)}
             </select>
             <select
               value={filter.month}
               onChange={(e) => setFilter({ ...filter, month: Number(e.target.value) })}
-              className={selectCls}
+              className={filterSel}
             >
               <option value={-1}>Todos os meses</option>
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
@@ -437,14 +460,14 @@ function EstoquePage() {
               value={filter.year}
               onChange={(e) => setFilter({ ...filter, year: Number(e.target.value) })}
               disabled={filter.month < 0}
-              className={cn(selectCls, filter.month < 0 && "opacity-40")}
+              className={cn(filterSel, filter.month < 0 && "opacity-40")}
             >
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
             {hasActiveFilters && (
               <button
                 onClick={() => setFilter({ q: filter.q, range: 0, status: "", month: -1, year: now.getFullYear() })}
-                className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground hover:bg-muted"
+                className="h-9 rounded-[10px] border border-border px-3 text-xs font-medium text-muted-foreground hover:bg-muted"
               >
                 Limpar filtros
               </button>
@@ -489,7 +512,7 @@ function EstoquePage() {
             <VehicleCard
               key={v.id}
               v={v}
-              onEdit={() => setEditVehicle(v)}
+              onEdit={() => setModalTarget(v)}
               onPhotos={() => setPhotoVehicle(v)}
               onDelete={() => setDeleteTarget(v.id)}
               onStatusChange={(status) => updateStatus.mutate({ id: v.id, status })}
@@ -498,6 +521,7 @@ function EstoquePage() {
         </div>
       )}
 
+      {/* Modals */}
       {photoVehicle && (
         <PhotoModal
           vehicle={photoVehicle}
@@ -506,16 +530,11 @@ function EstoquePage() {
         />
       )}
 
-      {editVehicle && (
-        <EditVehicleModal
-          vehicle={editVehicle}
-          onClose={() => setEditVehicle(null)}
-          onSaved={(updated) => {
-            qc.setQueryData<Vehicle[]>(["vehicles"], (old) =>
-              old?.map((v) => v.id === updated.id ? updated : v) ?? []
-            );
-            setEditVehicle(null);
-          }}
+      {modalTarget !== null && (
+        <VehicleModal
+          vehicle={modalTarget === "new" ? null : modalTarget}
+          onClose={() => setModalTarget(null)}
+          onSaved={handleSaved}
         />
       )}
 
@@ -533,76 +552,62 @@ function EstoquePage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// EditVehicleModal
-// ---------------------------------------------------------------------------
+// ── VehicleModal (unified new + edit) ─────────────────────────────────────────
 
-type VehicleEditForm = {
-  brand: string; model: string; version: string;
-  year: string; color: string; mileage: string;
-  fuel: string; transmission: string;
-  price_listed: string; price_fipe: string;
-  deal_offer: string; description: string;
-  status: string;
-};
-
-function vehicleToForm(v: Vehicle): VehicleEditForm {
-  return {
-    brand:        v.brand,
-    model:        v.model,
-    version:      v.version ?? "",
-    year:         v.year != null ? String(v.year) : "",
-    color:        v.color ?? "",
-    mileage:      v.mileage != null ? String(v.mileage) : "",
-    fuel:         v.fuel ?? "",
-    transmission: v.transmission ?? "",
-    price_listed: v.price_listed != null ? String(Math.round(Number(v.price_listed))) : "",
-    price_fipe:   v.price_fipe   != null ? String(Math.round(Number(v.price_fipe)))   : "",
-    deal_offer:   v.deal_offer ?? "",
-    description:  v.description ?? "",
-    status:       v.status,
-  };
-}
-
-function EditVehicleModal({
-  vehicle, onClose, onSaved,
+function VehicleModal({
+  vehicle, // null = add new
+  onClose,
+  onSaved,
 }: {
-  vehicle: Vehicle;
+  vehicle: Vehicle | null;
   onClose: () => void;
-  onSaved: (updated: Vehicle) => void;
+  onSaved: (saved: Vehicle) => void;
 }) {
-  const [f, setF] = useState<VehicleEditForm>(() => vehicleToForm(vehicle));
+  const isEdit = vehicle !== null;
+  const [f, setF] = useState<VehicleFormData>(
+    isEdit ? vehicleToForm(vehicle) : EMPTY_FORM,
+  );
 
   const save = useMutation({
     mutationFn: async () => {
       if (!f.brand.trim() || !f.model.trim()) throw new Error("Marca e modelo são obrigatórios");
-      const patch = {
+      const payload = {
         brand:        f.brand.trim(),
         model:        f.model.trim(),
-        version:      f.version || null,
-        year:         f.year ? Number(f.year) : null,
-        color:        f.color || null,
-        mileage:      f.mileage ? Number(f.mileage) : null,
-        fuel:         f.fuel || null,
+        version:      f.version      || null,
+        year:         f.year         ? Number(f.year)          : null,
+        color:        f.color        || null,
+        mileage:      f.mileage      ? Number(f.mileage)       : null,
+        fuel:         f.fuel         || null,
         transmission: f.transmission || null,
         price_listed: f.price_listed ? Number(f.price_listed) : null,
         price_fipe:   f.price_fipe   ? Number(f.price_fipe)   : null,
-        deal_offer:   f.deal_offer || null,
-        description:  f.description || null,
+        deal_offer:   f.deal_offer   || null,
+        description:  f.description  || null,
         status:       f.status as Vehicle["status"],
       };
-      const { data, error } = await supabase
-        .from("vehicles")
-        .update(patch as never)
-        .eq("id", vehicle.id)
-        .select("*")
-        .single();
-      if (error) throw error;
-      return data as Vehicle;
+      if (isEdit) {
+        const { data, error } = await supabase
+          .from("vehicles")
+          .update(payload as never)
+          .eq("id", vehicle.id)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return data as Vehicle;
+      } else {
+        const { data, error } = await supabase
+          .from("vehicles")
+          .insert(payload)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return data as Vehicle;
+      }
     },
-    onSuccess: (updated) => {
-      toast.success("Veículo atualizado");
-      onSaved(updated);
+    onSuccess: (saved) => {
+      toast.success(isEdit ? "Veículo atualizado" : "Veículo adicionado");
+      onSaved(saved);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -613,18 +618,37 @@ function EditVehicleModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
+
+        {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-5 py-4">
-          <h2 className="text-base font-bold">
-            Editar — {vehicle.brand} {vehicle.model}{vehicle.version ? ` ${vehicle.version}` : ""}
-          </h2>
-          <button onClick={onClose} className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted">
+          <div>
+            <h2 className="text-base font-bold">
+              {isEdit
+                ? `Editar — ${vehicle.brand} ${vehicle.model}${vehicle.version ? ` ${vehicle.version}` : ""}`
+                : "Adicionar Veículo"}
+            </h2>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">
+                {VEHICLE_STATUSES.find((s) => s.id === vehicle.status)?.label ?? vehicle.status}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+          >
             <X className="size-4" />
           </button>
         </div>
 
+        {/* Body */}
         <div className="space-y-6 p-5">
+
+          {/* Identificação */}
           <section>
-            <p className={cn(labelCls, "mb-3")}>Informações Básicas</p>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+              Identificação
+            </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
                 <label className={labelCls}>Marca *</label>
@@ -659,7 +683,7 @@ function EditVehicleModal({
               </div>
               <div>
                 <label className={labelCls}>Status</label>
-                <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
+                <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={selectCls}>
                   {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
               </div>
@@ -667,14 +691,14 @@ function EditVehicleModal({
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Combustível</label>
-                <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
+                <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={selectCls}>
                   <option value="">— Selecionar —</option>
                   {FUEL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
                 <label className={labelCls}>Câmbio</label>
-                <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
+                <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={selectCls}>
                   <option value="">— Selecionar —</option>
                   {TRANSMISSION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -682,8 +706,11 @@ function EditVehicleModal({
             </div>
           </section>
 
+          {/* Precificação */}
           <section>
-            <p className={cn(labelCls, "mb-3")}>Informações Comerciais</p>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+              Precificação
+            </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>Valor anunciado</label>
@@ -696,8 +723,11 @@ function EditVehicleModal({
             </div>
           </section>
 
+          {/* Oferta & Descrição */}
           <section>
-            <p className={cn(labelCls, "mb-3")}>Oferta / Descrição</p>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+              Oferta & Descrição
+            </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>Oferta / Bônus</label>
@@ -706,7 +736,7 @@ function EditVehicleModal({
                   onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
                   rows={4}
                   placeholder={"Transferência grátis\nTanque cheio\nIPVA pago"}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
+                  className={textareaCls}
                 />
               </div>
               <div>
@@ -716,23 +746,29 @@ function EditVehicleModal({
                   onChange={(e) => setF({ ...f, description: e.target.value })}
                   rows={4}
                   placeholder={"Motor 1.4\nAr condicionado\nMultimídia"}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
+                  className={textareaCls}
                 />
               </div>
             </div>
           </section>
         </div>
 
+        {/* Footer */}
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-border bg-card px-5 py-4">
-          <button onClick={onClose} className="h-9 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted">
+          <button
+            onClick={onClose}
+            className="h-9 rounded-[10px] border border-border px-4 text-sm font-medium text-muted-foreground hover:bg-muted"
+          >
             Cancelar
           </button>
           <button
             onClick={() => save.mutate()}
             disabled={save.isPending}
-            className="h-9 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
-            {save.isPending ? "Salvando…" : "Salvar alterações"}
+            {save.isPending
+              ? "Salvando…"
+              : isEdit ? "Salvar alterações" : "Adicionar veículo"}
           </button>
         </div>
       </div>
@@ -740,9 +776,7 @@ function EditVehicleModal({
   );
 }
 
-// ---------------------------------------------------------------------------
-// PhotoModal
-// ---------------------------------------------------------------------------
+// ── PhotoModal ────────────────────────────────────────────────────────────────
 
 function PhotoModal({
   vehicle, onClose, onMainChanged,
@@ -775,7 +809,7 @@ function PhotoModal({
       const isFirst = photos.length === 0;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const ext = file.name.split(".").pop() ?? "jpg";
+        const ext  = file.name.split(".").pop() ?? "jpg";
         const path = `${vehicle.tenant_id}/${vehicle.id}/${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("vehicle-photos")
@@ -784,11 +818,8 @@ function PhotoModal({
         const { data: { publicUrl } } = supabase.storage.from("vehicle-photos").getPublicUrl(path);
         const makeMain = isFirst && i === 0;
         await supabase.from("vehicle_photos").insert({
-          vehicle_id: vehicle.id,
-          url: publicUrl,
-          path,
-          ordem: photos.length + i,
-          is_main: makeMain,
+          vehicle_id: vehicle.id, url: publicUrl, path,
+          ordem: photos.length + i, is_main: makeMain,
         });
         if (makeMain) {
           await supabase.from("vehicles").update({ photo_main_url: publicUrl }).eq("id", vehicle.id);
@@ -839,7 +870,7 @@ function PhotoModal({
         <div className="p-5">
           <label
             className={cn(
-              "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-sm font-medium hover:bg-muted",
+              "inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-border px-4 py-2.5 text-sm font-medium hover:bg-muted",
               uploading && "pointer-events-none opacity-60",
             )}
           >
@@ -895,168 +926,6 @@ function PhotoModal({
         variant="danger"
         onConfirm={() => { if (photoToDelete) { deletePhoto(photoToDelete); setPhotoToDelete(null); } }}
       />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// NewVehicleForm
-// ---------------------------------------------------------------------------
-
-type VehicleForm = {
-  brand: string; model: string; version: string;
-  year: string; color: string; mileage: string;
-  fuel: string; transmission: string;
-  price_listed: string; price_fipe: string;
-  deal_offer: string; description: string;
-  status: string;
-};
-
-const emptyForm: VehicleForm = {
-  brand: "", model: "", version: "",
-  year: "", color: "", mileage: "",
-  fuel: "", transmission: "",
-  price_listed: "", price_fipe: "",
-  deal_offer: "", description: "",
-  status: "disponivel",
-};
-
-function NewVehicleForm({ onDone }: { onDone: () => void }) {
-  const [f, setF] = useState<VehicleForm>(emptyForm);
-
-  const m = useMutation({
-    mutationFn: async () => {
-      if (!f.brand || !f.model) throw new Error("Marca e modelo são obrigatórios");
-      const { error } = await supabase.from("vehicles").insert({
-        brand:        f.brand,
-        model:        f.model,
-        version:      f.version      || null,
-        year:         f.year         ? Number(f.year)    : null,
-        color:        f.color        || null,
-        mileage:      f.mileage      ? Number(f.mileage) : null,
-        fuel:         f.fuel         || null,
-        transmission: f.transmission || null,
-        price_listed: f.price_listed ? Number(f.price_listed) : null,
-        price_fipe:   f.price_fipe   ? Number(f.price_fipe)   : null,
-        deal_offer:   f.deal_offer   || null,
-        description:  f.description  || null,
-        status:       f.status as "disponivel" | "reservado" | "vendido",
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Veículo adicionado"); onDone(); },
-    onError:   (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <div className="mb-5 rounded-2xl border border-border bg-card p-5">
-      <h3 className="mb-4 text-sm font-bold">Novo veículo</h3>
-      <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div>
-            <label className={labelCls}>Marca *</label>
-            <input placeholder="Toyota" value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value })} className={inputCls} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelCls}>Modelo *</label>
-            <input placeholder="Corolla" value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Versão</label>
-            <input placeholder="XEi" value={f.version} onChange={(e) => setF({ ...f, version: e.target.value })} className={inputCls} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div>
-            <label className={labelCls}>Ano</label>
-            <input
-              type="text" inputMode="numeric" maxLength={4} placeholder="2022"
-              value={f.year}
-              onChange={(e) => setF({ ...f, year: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Cor</label>
-            <input placeholder="Prata" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>KM</label>
-            <KmInput placeholder="45000" value={f.mileage} onChange={(v) => setF({ ...f, mileage: v })} />
-          </div>
-          <div>
-            <label className={labelCls}>Status</label>
-            <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
-              {VEHICLE_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Combustível</label>
-            <select value={f.fuel} onChange={(e) => setF({ ...f, fuel: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
-              <option value="">— Selecionar —</option>
-              {FUEL_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Câmbio</label>
-            <select value={f.transmission} onChange={(e) => setF({ ...f, transmission: e.target.value })} className={cn(inputCls, "cursor-pointer")}>
-              <option value="">— Selecionar —</option>
-              {TRANSMISSION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Valor anunciado</label>
-            <CurrencyInput placeholder="59900" value={f.price_listed} onChange={(v) => setF({ ...f, price_listed: v })} />
-          </div>
-          <div>
-            <label className={labelCls}>Tabela FIPE</label>
-            <CurrencyInput placeholder="58200" value={f.price_fipe} onChange={(v) => setF({ ...f, price_fipe: v })} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Oferta / Bônus</label>
-            <textarea
-              value={f.deal_offer}
-              onChange={(e) => setF({ ...f, deal_offer: e.target.value })}
-              rows={3}
-              placeholder={"Transferência grátis\nTanque cheio\nIPVA pago"}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Descrição do veículo</label>
-            <textarea
-              value={f.description}
-              onChange={(e) => setF({ ...f, description: e.target.value })}
-              rows={3}
-              placeholder={"Motor 1.4\nAr condicionado\nMultimídia"}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onDone}
-            className="h-9 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted">
-            Cancelar
-          </button>
-          <button
-            type="submit" disabled={m.isPending}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-          >
-            {m.isPending ? "Adicionando…" : "Adicionar"}
-          </button>
-        </div>
-      </form>
     </div>
   );
 }
