@@ -12,6 +12,8 @@ import {
 import { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Dashboard Comercial — DriverLeads" }] }),
@@ -91,10 +93,10 @@ function Kpi({
   const cls = tone ? clsMap[tone] : "text-foreground";
 
   return (
-    <div className="bg-card p-5 md:p-6">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className={cn("mt-1.5 text-3xl font-black tabular-nums", cls)}>{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+      <p className={cn("mt-2 text-3xl font-black tabular-nums tracking-tight", cls)}>{value}</p>
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -106,16 +108,16 @@ function PeriodFilter({ value, onChange }: { value: Period; onChange: (p: Period
     { id: "mes",    label: "Mês" },
   ];
   return (
-    <div className="flex overflow-hidden rounded-lg border border-border">
+    <div className="flex overflow-hidden rounded-[10px] border border-border bg-card">
       {opts.map((o) => (
         <button
           key={o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "px-3 py-1.5 text-xs font-semibold transition-colors",
+            "px-3.5 py-1.5 text-xs font-semibold transition-colors",
             value === o.id
               ? "bg-primary text-primary-foreground"
-              : "bg-card text-muted-foreground hover:bg-muted",
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           {o.label}
@@ -326,28 +328,24 @@ function Dashboard() {
     <div className="mx-auto max-w-[1600px] p-4 md:p-8">
 
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            {nomeDisplay ? `${getGreeting()}, ${nomeDisplay}` : isVendedor ? "Meu Dashboard" : "Dashboard Comercial"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isVendedor ? "Seus leads e compromissos" : "Visão geral do pipeline"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <PeriodFilter value={period} onChange={setPeriod} />
-          <Link
-            to="/clientes/novo"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
-            <Plus className="size-4" /> Novo Lead
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title={nomeDisplay ? `${getGreeting()}, ${nomeDisplay}` : isVendedor ? "Meu Dashboard" : "Dashboard Comercial"}
+        subtitle={isVendedor ? "Seus leads e compromissos" : "Visão geral do pipeline"}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodFilter value={period} onChange={setPeriod} />
+            <Link
+              to="/clientes/novo"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+            >
+              <Plus className="size-4" /> Novo Lead
+            </Link>
+          </div>
+        }
+      />
 
       {/* 4 KPIs principais */}
-      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           label={isVendedor ? "Meus Leads Ativos" : "Leads Ativos"}
           value={isLoading ? "…" : activeLeads.length}
@@ -373,7 +371,7 @@ function Dashboard() {
 
       {/* KPIs financeiros — gerente / admin */}
       {isGerente && (
-        <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm lg:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Kpi
             label={`Faturamento — ${PERIOD_LABEL[period]}`}
             value={isLoading ? "…" : faturamentoPeriod > 0 ? formatPriceBRL(faturamentoPeriod) : "R$ 0"}
@@ -411,14 +409,17 @@ function Dashboard() {
           </div>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
             {staleLeads.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                <TrendingUp className="mx-auto mb-2 size-6 text-success" />
-                Nenhum lead parado. Continue assim.
-              </div>
+              <EmptyState
+                icon={TrendingUp}
+                title="Nenhum lead parado"
+                subtitle="Todos os seus leads estão em dia. Continue assim!"
+                tone="success"
+                className="border-none py-10"
+              />
             ) : (
               <ul className="divide-y divide-border">
                 {staleLeads.slice(0, 6).map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-3 p-3 hover:bg-muted/40">
+                  <li key={c.id} className="flex items-center justify-between gap-3 p-3.5 hover:bg-muted/40">
                     <Link to="/clientes/$id" params={{ id: c.id }} className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{c.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
@@ -445,7 +446,7 @@ function Dashboard() {
         </section>
 
         {/* Aside direito */}
-        <aside className="w-full space-y-4 lg:w-72">
+        <aside className="w-full space-y-4 lg:w-80">
 
           {/* Próximos compromissos */}
           <div>
@@ -454,25 +455,29 @@ function Dashboard() {
                 <Clock className="size-4 text-primary" /> Próximos
               </h2>
               <Link to="/agenda" className="text-xs font-semibold text-primary hover:underline">
-                Agenda
+                Agenda <ArrowRight className="inline size-3" />
               </Link>
             </div>
-            <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
+            <div className="rounded-2xl border border-border bg-card p-4">
               {upcoming.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum compromisso agendado.</p>
               ) : (
-                upcoming.map((a) => {
-                  const dt = new Date(a.scheduled_at);
-                  const overdue = dt.getTime() < Date.now();
-                  return (
-                    <div key={a.id} className={cn("border-l-2 py-1 pl-3", overdue ? "border-destructive" : "border-primary/40")}>
-                      <p className={cn("font-mono text-xs", overdue ? "font-bold text-destructive" : "text-muted-foreground")}>
-                        {dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                      <p className="text-sm font-medium">{a.title || a.type}</p>
-                    </div>
-                  );
-                })
+                <div className="space-y-2.5">
+                  {upcoming.map((a) => {
+                    const dt      = new Date(a.scheduled_at);
+                    const overdue = dt.getTime() < Date.now();
+                    return (
+                      <div key={a.id} className={cn("flex items-start gap-3 rounded-lg border-l-2 py-1.5 pl-3", overdue ? "border-destructive" : "border-primary/50")}>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn("font-mono text-[11px]", overdue ? "font-bold text-destructive" : "text-muted-foreground")}>
+                            {dt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          <p className="text-sm font-medium leading-tight">{a.title || a.type}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
@@ -526,12 +531,12 @@ function Dashboard() {
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-semibold">Funil do Pipeline</p>
               {!isVendedor && totalEver > 0 && (
-                <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                   {convRate}% conversão
                 </span>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {pipelineByStatus.map((s) => {
                 const pct =
                   activePipelineTotal > 0 && !["venda_realizada", "perdido"].includes(s.id)
@@ -540,16 +545,16 @@ function Dashboard() {
                 return (
                   <div key={s.id}>
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-xs">
-                        <span className={cn("size-2 rounded-full", s.accent)} />
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className={cn("size-2 rounded-full flex-shrink-0", s.accent)} />
                         {s.label}
                       </span>
-                      <span className="font-mono text-xs font-bold">{s.count}</span>
+                      <span className="font-mono text-xs font-bold tabular-nums">{s.count}</span>
                     </div>
                     {pct > 0 && (
-                      <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                         <div
-                          className={cn("h-full rounded-full", s.accent)}
+                          className={cn("h-full rounded-full transition-all duration-500", s.accent)}
                           style={{ width: `${Math.max(pct, 3)}%` }}
                         />
                       </div>
