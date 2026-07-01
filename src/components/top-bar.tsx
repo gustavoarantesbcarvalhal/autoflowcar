@@ -4,8 +4,8 @@ import { NotificationBell } from "./notification-bell";
 
 const PATH_TITLES: Record<string, string> = {
   "/":              "Dashboard",
-  "/clientes":      "Clientes",
-  "/clientes/novo": "Novo Cliente",
+  "/clientes":      "Pipeline",
+  "/clientes/novo": "Novo Lead",
   "/followup":      "Follow-up",
   "/estoque":       "Estoque",
   "/agenda":        "Agenda",
@@ -16,7 +16,7 @@ const PATH_TITLES: Record<string, string> = {
 
 function resolveTitle(pathname: string): string {
   if (PATH_TITLES[pathname]) return PATH_TITLES[pathname];
-  if (pathname.startsWith("/clientes/")) return "Detalhes do Cliente";
+  if (pathname.startsWith("/clientes/")) return "Lead";
   if (pathname.startsWith("/estoque/"))  return "Detalhes do Veículo";
   return "DriverLeads";
 }
