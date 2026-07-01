@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   AlertCircle, Copy, RefreshCw, X, Eye, EyeOff, Zap, Globe,
   Clock, ChevronRight, Wifi, WifiOff, Loader2, XCircle,
-  Building2, Users, Activity, Sparkles, Save, ArrowRight,
+  Building2, Activity, Sparkles, Save, ArrowRight,
   CheckCircle2, AlertTriangle, ChevronLeft,
 } from "lucide-react";
 import {
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/configuracoes")({
 // Types
 // ---------------------------------------------------------------------------
 
-type Section = "loja" | "usuarios" | "integracoes" | "api" | "webhooks" | "automacoes";
+type Section = "loja" | "integracoes" | "api" | "webhooks" | "automacoes";
 
 type Integration = {
   id: string;
@@ -102,7 +102,6 @@ function getVisualStatus(integration: Integration | null): VisualStatus {
 
 const SECTIONS: Array<{ id: Section; label: string; icon: React.FC<{ className?: string }> }> = [
   { id: "loja",        label: "Dados da Loja",  icon: Building2 },
-  { id: "usuarios",    label: "Usuários",        icon: Users     },
   { id: "integracoes", label: "Integrações",     icon: Zap       },
   { id: "api",         label: "API",             icon: Globe     },
   { id: "webhooks",    label: "Webhooks",        icon: Activity  },
@@ -1112,25 +1111,6 @@ function LojaSection({ perfil }: { perfil: string | null }) {
 // Section: Usuários
 // ---------------------------------------------------------------------------
 
-function UsuariosSection() {
-  const navigate = useNavigate();
-  return (
-    <div className="space-y-6">
-      <div><h2 className="text-base font-semibold">Usuários</h2><p className="text-sm text-muted-foreground">Gerencie os usuários da sua loja</p></div>
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10"><Users className="size-5 text-primary" /></div>
-            <div><p className="text-sm font-semibold">Gerenciar Usuários</p><p className="text-xs text-muted-foreground">Vendedores, gerentes e administradores</p></div>
-          </div>
-          <button onClick={() => navigate({ to: "/usuarios" as never })} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-            Acessar <ArrowRight className="size-3.5" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Section: Integrações
@@ -1369,9 +1349,9 @@ function ConfiguracoesPage() {
 
       <div className="flex gap-6">
         {/* Desktop sidebar */}
-        <nav className="hidden w-44 shrink-0 flex-col gap-0.5 md:flex">
+        <nav className="hidden w-52 shrink-0 flex-col gap-0.5 md:flex">
           {SECTIONS.map((s) => (
-            <button key={s.id} onClick={() => setSection(s.id)} className={cn("flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-left transition-colors", section === s.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+            <button key={s.id} onClick={() => setSection(s.id)} className={cn("flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-left transition-colors", section === s.id ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               <s.icon className="size-4 shrink-0" />{s.label}
             </button>
           ))}
@@ -1380,7 +1360,6 @@ function ConfiguracoesPage() {
         {/* Content */}
         <div className="min-w-0 flex-1">
           {section === "loja"        && <LojaSection perfil={perfil} />}
-          {section === "usuarios"    && <UsuariosSection />}
           {section === "integracoes" && (
             <IntegracoesSection
               integrations={integrations}
